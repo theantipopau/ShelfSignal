@@ -1,0 +1,30 @@
+# Secrets & environment
+.env
+.env.*
+!.env.example
+
+# Build artifacts & caches
+node_modules/
+.dart_tool/
+build/
+.next/
+out/
+dist/
+coverage/
+.pub-cache/
+.pub/
+
+# Admin portal (scaffolded later)
+admin/node_modules/
+
+# Freebuff workspace metadata
+.freebuff/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+*.iml
+.vscode/
