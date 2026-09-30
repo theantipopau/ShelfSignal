@@ -84,8 +84,14 @@ Key defects found and fixed:
 3. Household model + shared watchlist (Phase 4 spec section 9.9).
 4. Push pipeline skeleton: device tokens exist; wire FCM once Firebase exists.
 5. Admin portal scaffold (Next.js) with moderation queue.
-6. CI: GitHub Actions running backend jest + flutter analyze/test on PRs.
-7. Real-PostgreSQL integration job in staging (contract tests already mirror it).
+6. Real-PostgreSQL integration job in staging (contract tests already mirror it).
+
+### Repository & CI (2026-10-01)
+- Public GitHub repository: https://github.com/theantipopau/ShelfSignal
+- GitHub Actions CI (`.github/workflows/ci.yml`): backend lint + jest on
+  Node 22 (tests require `node:sqlite`, Node 22.5+), mobile flutter analyze
+  + test on stable Flutter. Note: `node:sqlite` does not exist on Node 20 —
+  the CI failure on the first push was this exact issue, fixed by pinning Node 22.
 
 ## 2026-09-30 — Initial Setup & Scaffolding (historical)
 
