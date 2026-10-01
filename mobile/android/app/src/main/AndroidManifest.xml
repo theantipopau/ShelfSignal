@@ -1,4 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Camera is used only for barcode capture and is requested when the
+         user starts a scan (spec 9.2/9.3). Manual entry is the fallback, so
+         the camera feature itself is optional for app-store availability. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature
+        android:name="android.hardware.camera.any"
+        android:required="false" />
+
     <application
         android:label="shelfsignal"
         android:name="${applicationName}"

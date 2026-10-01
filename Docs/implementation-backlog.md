@@ -18,10 +18,12 @@ Done in the vertical-slice rebuild (see [CHANGELOG.md](../CHANGELOG.md)):
 - [x] Signal evaluation engine (pure, unit-tested) + fixture ingestion + signals feed
 - [x] Signals actions: dismiss / snooze / mark-bought
 - [x] Mobile shell: Riverpod, GoRouter shell, design tokens, demo mode, all five tabs
-- [x] Unit tests backend (52) + mobile (4); flutter analyze clean
+- [x] Camera barcode scanning (mobile_scanner 7): opt-in permission timing (spec 9.2),
+      GTIN-only detection + GS1 check-digit gate, haptic/visual confirmation, duplicate
+      suppression, torch control, manual-entry fallback; Android/iOS camera declarations
+- [x] Unit tests backend (52) + mobile (7); flutter analyze clean
 
 Not started (unchanged):
-- [ ] Camera barcode scanning (mobile_scanner) + permission timing
 - [ ] Sign in with Apple / Google (Firebase)
 - [ ] Push pipeline (FCM send path; device-token registration exists)
 - [ ] Household sharing, shopping list, admin portal, retailer adapters
@@ -81,12 +83,12 @@ Not started (unchanged):
 
 ### Product & Barcode
 - [ ] **Barcode Scanning**
-  - [ ] Camera permission request
-  - [ ] Barcode detection (EAN-8, EAN-13, UPC-A)
-  - [ ] Haptic and visual confirmation
-  - [ ] Duplicate detection
-  - [ ] Torch control
-  - [ ] Manual entry fallback
+  - [x] Camera permission request (opt-in timing: prompt fires on "Start camera", spec 9.2)
+  - [x] Barcode detection (EAN-8, EAN-13, UPC-A — GTIN-only format filter + GS1 check digit)
+  - [x] Haptic and visual confirmation (mediumImpact + reticle + resolved card)
+  - [x] Duplicate detection (same code suppressed for 4s / while resolving)
+  - [x] Torch control
+  - [x] Manual entry fallback (always available, accessible alternative)
   - [ ] Offline queueing
 
 - [ ] **Product Resolution**

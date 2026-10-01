@@ -9,6 +9,12 @@
   Premium iOS &amp; Android price monitoring for Australian households.
 </p>
 
+<p align="center">
+  <a href="https://github.com/theantipopau/ShelfSignal/actions/workflows/ci.yml">
+    <img src="https://github.com/theantipopau/ShelfSignal/actions/workflows/ci.yml/badge.svg" alt="CI status" />
+  </a>
+</p>
+
 ## Project Structure
 
 ```
@@ -55,6 +61,16 @@ flutter analyze && flutter test
 The app starts in **demo mode** (clearly labelled) using the same fixtures as
 the backend seed. To go live: run the backend, then set the API base URL in
 Profile → and toggle demo mode off.
+
+### Camera scanning
+
+The Scan tab uses the device camera (mobile_scanner) for EAN-8, UPC-A/UPC-E
+and EAN-13, gated by the same GS1 check-digit rule as the backend. Per spec
+§9.2/§9.3 the permission prompt appears only when you tap **Start camera** —
+a rationale card explains first that frames are analysed on-device and never
+stored. Torch control, duplicate suppression and manual entry (always
+available) round out the flow. On a desktop dev machine without a camera,
+manual entry and the demo fixtures still exercise the full loop.
 
 ## Documentation
 

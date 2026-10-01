@@ -1,5 +1,26 @@
 # ShelfSignal — Rolling Changelog
 
+## 2026-10-01 — Camera Barcode Scanning (spec §9.2/§9.3)
+
+- **mobile_scanner 7.4.2** added; GTIN-only detection (EAN-8, UPC-A/UPC-E,
+  EAN-13) with the backend's GS1 mod-10 check digit as a second gate.
+- **Permission timing**: the OS camera prompt fires only when the user taps
+  "Start camera"; a rationale card explains the on-device-only frame
+  processing first (no frames stored or uploaded). Permission-denied and
+  start failures degrade gracefully to manual entry with explicit messaging.
+- **Spec §9.3 behaviours**: haptic + visual confirmation (scan reticle and
+  resolved product card), duplicate suppression (same code ignored for 4s
+  and while a resolve is in flight), torch control on the preview, stop-camera
+  control, and manual entry always available as the accessible fallback.
+- **Platform declarations**: `android.permission.CAMERA` plus
+  `uses-feature camera.any required=false` (tablets without a camera can
+  still install); iOS `NSCameraUsageDescription` states the barcode-only
+  purpose for App Store review.
+- **Tests**: 3 new widget tests (camera stays off until opt-in, manual
+  resolve of a fixture barcode, GTIN check-digit rejection) — mobile suite
+  now 7/7; `flutter analyze` clean.
+- **Repo**: GitHub repo description + topics set; CI badge added to README.
+
 ## 2026-10-01 — Vertical Slice Rebuild (backend + mobile)
 
 ### Review of 2026-09-30 baseline
@@ -80,11 +101,10 @@ Key defects found and fixed:
 ### Next steps
 1. Run `docker-compose up -d postgres && npm run migrate:seed && npm run dev`
    and point a device/emulator at the LAN URL with demo mode off.
-2. Camera scanning with permission timing per spec §9.2 (mobile_scanner).
-3. Household model + shared watchlist (Phase 4 spec section 9.9).
-4. Push pipeline skeleton: device tokens exist; wire FCM once Firebase exists.
-5. Admin portal scaffold (Next.js) with moderation queue.
-6. Real-PostgreSQL integration job in staging (contract tests already mirror it).
+2. Household model + shared watchlist (Phase 4 spec section 9.9).
+3. Push pipeline skeleton: device tokens exist; wire FCM once Firebase exists.
+4. Admin portal scaffold (Next.js) with moderation queue.
+5. Real-PostgreSQL integration job in staging (contract tests already mirror it).
 
 ### Repository & CI (2026-10-01)
 - Public GitHub repository: https://github.com/theantipopau/ShelfSignal
