@@ -72,11 +72,18 @@ function effectiveOfferPrice(offer, { includeMemberPrices = true } = {}) {
   return base;
 }
 
-/** Freshness check: offers older than maxAgeHours are never push-worthy. */
+/** Largest clock difference tolerated between the DB (which stamps observed_at) and this process. */
+const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
+
+/**
+ * Freshness check: offers older than maxAgeHours are never push-worthy.
+ * Observations stamped slightly in the future (DB/app clock skew, ms rounding)
+ * are fresh; ones further ahead than MAX_CLOCK_SKEW_MS are anomalies and fail.
+ */
 function isFresh(observedAt, now, { maxAgeHours = 48 } = {}) {
   if (!observedAt) return false;
   const ageMs = new Date(now).getTime() - new Date(observedAt).getTime();
-  if (Number.isNaN(ageMs) || ageMs < 0) return false;
+  if (Number.isNaN(ageMs) || ageMs < -MAX_CLOCK_SKEW_MS) return false;
   return ageMs <= maxAgeHours * 60 * 60 * 1000;
 }
 

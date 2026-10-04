@@ -72,7 +72,7 @@ function signToken(user) {
 
 async function getMe(userId) {
   const [user] = await db.query(
-    'SELECT id, email, display_name, postcode, is_adult, created_at FROM users WHERE id = $1',
+    'SELECT id, email, display_name, postcode, is_adult, role, created_at FROM users WHERE id = $1',
     [userId],
   );
   if (!user) throw new UnauthorizedError('User not found');

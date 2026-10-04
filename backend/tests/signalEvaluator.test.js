@@ -72,6 +72,12 @@ describe('gates', () => {
     expect(isFresh(null, NOW)).toBe(false);
   });
 
+  it('tolerates small clock skew but rejects genuinely future-dated observations', () => {
+    expect(isFresh(new Date(NOW.getTime() + 1), NOW)).toBe(true); // 1 ms ahead (DB rounding)
+    expect(isFresh(new Date(NOW.getTime() + 60 * 1000), NOW)).toBe(true); // 1 min of skew
+    expect(isFresh(new Date(NOW.getTime() + 60 * 60 * 1000), NOW)).toBe(false); // 1 h ahead = anomaly
+  });
+
   test('cooldown', () => {
     const lastSignal = new Date(NOW.getTime() - 10 * 3600 * 1000);
     expect(isInCooldown(lastSignal, NOW, 24)).toBe(true);

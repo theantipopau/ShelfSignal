@@ -73,6 +73,7 @@ describe('PostgreSQL: migrations and critical path', () => {
         '002_household_and_preferences.js',
         '003_notification_channel_controls.js',
         '004_user_roles.js',
+        '005_shopping_reports_audit.js',
       ]),
     );
     expect(new Set(rows.map((r) => r.name)).size).toBe(rows.length);
@@ -171,6 +172,42 @@ describe('PostgreSQL: migrations and critical path', () => {
     expect(p.status).toBe(200);
     const g = await as(token, request(app).get('/api/notifications/preferences'));
     expect(g.body.data.muted_categories).toEqual(['liquor']);
+  });
+
+  it('runs the shopping list, reports, moderation, audit and export on real Postgres', async () => {
+    const item = await as(token, request(app).post('/api/shopping-list')).send({ productId, quantity: 2, retailerSlug: 'dan-murphys' });
+    expect(item.status).toBe(201);
+    const done = await as(token, request(app).patch(`/api/shopping-list/${item.body.data.id}`)).send({ status: 'done' });
+    expect(done.body.data.status).toBe('done');
+    expect(done.body.data.completed_by).toBe(userId);
+    const open = await as(token, request(app).get('/api/shopping-list?status=open'));
+    expect(open.body.data.length).toBe(0);
+    const shared = await as(token, request(app).post('/api/shopping-list')).send({ title: 'Milk', shared: true });
+    expect(shared.status).toBe(201);
+    const seen = await as(secondToken, request(app).get('/api/shopping-list'));
+    expect(seen.body.data.map((i) => i.title)).toContain('Milk');
+
+    const report = await as(secondToken, request(app).post(`/api/products/${productId}/reports`)).send({ kind: 'mismatch', note: 'wrong size' });
+    expect(report.status).toBe(201);
+    const reports = await as(token, request(app).get('/api/admin/reports'));
+    expect(reports.body.data.length).toBe(1);
+    const resolved = await as(token, request(app).post(`/api/admin/reports/${report.body.data.id}/resolve`)).send({ resolution: 'resolved' });
+    expect(resolved.status).toBe(200);
+
+    const sub = await as(token, request(app).post('/api/products/submissions')).send({ barcode: '9310072011097', suggestedName: 'unknown thing' });
+    const queue = await as(token, request(app).get('/api/admin/moderation/queue'));
+    expect(queue.body.data.some((p) => p.barcode === '9310072011097')).toBe(true);
+    const verified = await as(token, request(app).post(`/api/admin/products/${sub.body.data.productId}/verify`)).send({ canonicalName: 'Verified Thing', netQuantity: 3, unit: 'kg' });
+    expect(verified.status).toBe(200);
+    expect(verified.body.data.verification_status).toBe('verified');
+
+    const audit = await as(token, request(app).get('/api/admin/audit'));
+    expect(audit.body.data.map((e) => e.action)).toEqual(expect.arrayContaining(['report.resolved', 'product.verify']));
+
+    const exp = await as(token, request(app).get('/api/auth/export'));
+    expect(exp.status).toBe(200);
+    expect(exp.body.data.shopping_list.length).toBe(2);
+    expect(JSON.stringify(exp.body.data)).not.toContain('password_hash');
   });
 
   it('reports retailer diagnostics', async () => {

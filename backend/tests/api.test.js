@@ -206,6 +206,43 @@ sqlite.exec(`
     updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
   );
 
+  CREATE TABLE shopping_list_items (
+    id TEXT PRIMARY KEY DEFAULT ${UUID_EXPR},
+    owner_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    household_id TEXT REFERENCES households(id) ON DELETE CASCADE,
+    product_id TEXT REFERENCES products(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    retailer_slug TEXT,
+    note TEXT,
+    status TEXT NOT NULL DEFAULT 'open',
+    completed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+    completed_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+  );
+  CREATE TABLE product_reports (
+    id TEXT PRIMARY KEY DEFAULT ${UUID_EXPR},
+    product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    retailer_product_id TEXT REFERENCES retailer_products(id) ON DELETE SET NULL,
+    reporter_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    kind TEXT NOT NULL,
+    note TEXT,
+    status TEXT NOT NULL DEFAULT 'open',
+    resolution_note TEXT,
+    resolved_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+    resolved_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+  );
+  CREATE TABLE audit_events (
+    id TEXT PRIMARY KEY DEFAULT ${UUID_EXPR},
+    actor_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    action TEXT NOT NULL,
+    target_type TEXT,
+    target_id TEXT,
+    detail TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ','now'))
+  );
+
 `);
 
 // --- pg-compatible adapter over SQLite -------------------------------------
@@ -1234,5 +1271,255 @@ describe('phase 4: notification preferences (spec 9.11)', () => {
       .send({ category: 'grocery', retailer: 'woolworths' });
     expect(cleared.body.data.deliver).toBe(true);
     expect(cleared.body.data.reason).toBe('ok');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Shopping list, mismatch reports, moderation, audit trail, data export
+// ---------------------------------------------------------------------------
+describe('shopping list (spec 9.10)', () => {
+  let plainToken;
+  let itemId;
+  let sharedItemId;
+  let householdId;
+
+  beforeAll(async () => {
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'shopper@shelfsignal.example', password: 'correct-horse-battery' });
+    plainToken = res.body.data.token;
+  });
+
+  const asPlain = (req) => req.set('Authorization', `Bearer ${plainToken}`);
+
+  it('requires authentication', async () => {
+    expect((await request(app).get('/api/shopping-list')).status).toBe(401);
+  });
+
+  it('adds a product, deriving the title, and a free-text item', async () => {
+    const search = await authed(request(app).get('/api/products/search?q=sauce'));
+    const productId = search.body.data[0].id;
+    const a = await asPlain(request(app).post('/api/shopping-list')).send({ productId, quantity: 2, retailerSlug: 'coles' });
+    expect(a.status).toBe(201);
+    expect(a.body.data.title).toContain('Tomato Pasta Sauce');
+    expect(a.body.data.quantity).toBe(2);
+    itemId = a.body.data.id;
+    const b = await asPlain(request(app).post('/api/shopping-list')).send({ title: '  Dishwasher tablets ' });
+    expect(b.status).toBe(201);
+    expect(b.body.data.title).toBe('Dishwasher tablets');
+  });
+
+  it('validates input', async () => {
+    expect((await asPlain(request(app).post('/api/shopping-list')).send({})).status).toBe(400);
+    expect((await asPlain(request(app).post('/api/shopping-list')).send({ title: 'x', quantity: 0 })).status).toBe(400);
+    expect((await asPlain(request(app).post('/api/shopping-list')).send({ title: 'x', quantity: 1.5 })).status).toBe(400);
+    expect((await asPlain(request(app).post('/api/shopping-list')).send({ title: 'x', shared: true })).status).toBe(400);
+    expect((await asPlain(request(app).post('/api/shopping-list')).send({ productId: 'nope-not-a-product' })).status).toBe(404);
+  });
+
+  it('completes and reopens an item, recording who completed it', async () => {
+    const done = await asPlain(request(app).patch(`/api/shopping-list/${itemId}`)).send({ status: 'done' });
+    expect(done.status).toBe(200);
+    expect(done.body.data.status).toBe('done');
+    expect(done.body.data.completed_at).toBeTruthy();
+    const open = await asPlain(request(app).get('/api/shopping-list?status=open'));
+    expect(open.body.data.find((i) => i.id === itemId)).toBeUndefined();
+    const reopened = await asPlain(request(app).patch(`/api/shopping-list/${itemId}`)).send({ status: 'open' });
+    expect(reopened.body.data.completed_at).toBeNull();
+    expect((await asPlain(request(app).patch(`/api/shopping-list/${itemId}`)).send({ status: 'bogus' })).status).toBe(400);
+  });
+
+  it('never shows one user\'s private items to another user', async () => {
+    const mine = await authed(request(app).get('/api/shopping-list'));
+    expect(mine.body.data.find((i) => i.id === itemId)).toBeUndefined();
+    expect((await authed(request(app).patch(`/api/shopping-list/${itemId}`)).send({ status: 'done' })).status).toBe(404);
+    expect((await authed(request(app).delete(`/api/shopping-list/${itemId}`))).status).toBe(404);
+  });
+
+  it('shares items with household members, who may complete but not edit or delete them', async () => {
+    const reg = await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'housemate@shelfsignal.example', password: 'correct-horse-battery' });
+    const memberId = reg.body.data.user.id;
+    const asMember = (req) => req.set('Authorization', `Bearer ${reg.body.data.token}`);
+    const hh = await asPlain(request(app).post('/api/households')).send({ name: 'Shoppers' });
+    householdId = hh.body.data.id;
+    const shared = await asPlain(request(app).post('/api/shopping-list')).send({ title: 'Milk 2L', shared: true });
+    expect(shared.status).toBe(201);
+    expect(shared.body.data.household_id).toBe(householdId);
+    sharedItemId = shared.body.data.id;
+
+    // The housemate is not yet in the household.
+    expect((await asMember(request(app).get('/api/shopping-list'))).body.data.find((i) => i.id === sharedItemId)).toBeUndefined();
+
+    const invite = await asPlain(request(app).post(`/api/households/${householdId}/invites`)).send({});
+    const accept = await asMember(request(app).post('/api/households/invites/accept')).send({ token: invite.body.data.token });
+    expect(accept.status).toBe(200);
+
+    const visible = await asMember(request(app).get('/api/shopping-list'));
+    expect(visible.body.data.find((i) => i.id === sharedItemId)).toBeTruthy();
+    expect(visible.body.data.find((i) => i.id === itemId)).toBeUndefined(); // still private
+
+    const complete = await asMember(request(app).patch(`/api/shopping-list/${sharedItemId}`)).send({ status: 'done' });
+    expect(complete.status).toBe(200);
+    expect(complete.body.data.completed_by).toBe(memberId);
+    expect((await asMember(request(app).patch(`/api/shopping-list/${sharedItemId}`)).send({ quantity: 9 })).status).toBe(403);
+    expect((await asMember(request(app).delete(`/api/shopping-list/${sharedItemId}`))).status).toBe(403);
+    expect((await asPlain(request(app).delete(`/api/shopping-list/${sharedItemId}`))).status).toBe(200);
+  });
+});
+
+describe('mismatch reports and moderation (spec 9.3, 9.8, 18)', () => {
+  let plainToken;
+  let productId;
+  let retailerProductId;
+  let reportId;
+  let unknownProductId;
+
+  beforeAll(async () => {
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'reporter@shelfsignal.example', password: 'correct-horse-battery' });
+    plainToken = res.body.data.token;
+    const search = await authed(request(app).get('/api/products/search?q=whisky'));
+    productId = search.body.data[0].id;
+    retailerProductId = sqlite.prepare('SELECT id FROM retailer_products WHERE product_id = ? LIMIT 1').get(productId).id;
+  });
+
+  const asPlain = (req) => req.set('Authorization', `Bearer ${plainToken}`);
+
+  it('lets any signed-in user report a mismatch, idempotently', async () => {
+    const first = await asPlain(request(app).post(`/api/products/${productId}/reports`)).send({
+      kind: 'mismatch',
+      retailerProductId,
+      note: 'This is the 1L bottle, not 700mL',
+    });
+    expect(first.status).toBe(201);
+    reportId = first.body.data.id;
+    const again = await asPlain(request(app).post(`/api/products/${productId}/reports`)).send({ kind: 'mismatch', retailerProductId });
+    expect(again.status).toBe(200);
+    expect(again.body.data.already_reported).toBe(true);
+    expect(again.body.data.id).toBe(reportId);
+  });
+
+  it('validates reports', async () => {
+    expect((await asPlain(request(app).post(`/api/products/${productId}/reports`)).send({ kind: 'spam' })).status).toBe(400);
+    expect((await asPlain(request(app).post('/api/products/does-not-exist/reports')).send({})).status).toBe(404);
+    const otherProduct = sqlite.prepare('SELECT id FROM products WHERE id != ? LIMIT 1').get(productId).id;
+    expect(
+      (await asPlain(request(app).post(`/api/products/${otherProduct}/reports`)).send({ retailerProductId })).status,
+    ).toBe(400);
+    expect((await request(app).post(`/api/products/${productId}/reports`).send({})).status).toBe(401);
+  });
+
+  it('keeps the whole admin surface closed to normal users', async () => {
+    for (const [method, path] of [
+      ['get', '/api/admin/moderation/queue'],
+      ['get', '/api/admin/reports'],
+      ['get', '/api/admin/audit'],
+      ['post', `/api/admin/products/${productId}/verify`],
+      ['post', `/api/admin/reports/${reportId}/resolve`],
+    ]) {
+      const res = await asPlain(request(app)[method](path)).send({});
+      expect(res.status).toBe(403);
+    }
+    expect((await request(app).get('/api/admin/reports')).status).toBe(401);
+  });
+
+  it('shows open reports to admins with product and listing context', async () => {
+    const res = await authed(request(app).get('/api/admin/reports'));
+    expect(res.status).toBe(200);
+    const row = res.body.data.find((r) => r.id === reportId);
+    expect(row.canonical_name).toBe('Blended Whisky');
+    expect(row.retailer_title).toContain('Two Oak');
+  });
+
+  it('resolving with unmap detaches the listing so it cannot raise signals', async () => {
+    const res = await authed(request(app).post(`/api/admin/reports/${reportId}/resolve`)).send({
+      resolution: 'resolved',
+      unmap: true,
+      note: 'Wrong pack size',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.data.unmapped).toBe(true);
+    const rp = sqlite.prepare('SELECT product_id, match_confidence FROM retailer_products WHERE id = ?').get(retailerProductId);
+    expect(rp.product_id).toBeNull();
+    expect(Number(rp.match_confidence)).toBe(0);
+    const closed = await authed(request(app).post(`/api/admin/reports/${reportId}/resolve`)).send({ resolution: 'dismissed' });
+    expect(closed.status).toBe(400); // already closed
+    expect((await authed(request(app).get('/api/admin/reports'))).body.data.find((r) => r.id === reportId)).toBeUndefined();
+  });
+
+  it('queues unknown-barcode submissions and verifies them with corrections', async () => {
+    const sub = await authed(request(app).post('/api/products/submissions')).send({
+      barcode: '9300675046251',
+      suggestedName: 'laundry liquid',
+      brand: 'Examplo',
+    });
+    expect([200, 201]).toContain(sub.status);
+    unknownProductId = sub.body.data.productId;
+
+    const queue = await authed(request(app).get('/api/admin/moderation/queue'));
+    const queued = queue.body.data.find((p) => p.id === unknownProductId);
+    expect(queued.barcode).toBe('9300675046251');
+
+    const bad = await authed(request(app).post(`/api/admin/products/${unknownProductId}/verify`)).send({ canonicalName: '  ' });
+    expect(bad.status).toBe(400);
+
+    const ok = await authed(request(app).post(`/api/admin/products/${unknownProductId}/verify`)).send({
+      canonicalName: 'Laundry Liquid Front & Top Loader',
+      netQuantity: 2,
+      unit: 'L',
+      note: 'matched on pack photo',
+    });
+    expect(ok.status).toBe(200);
+    expect(ok.body.data.verification_status).toBe('verified');
+    expect(ok.body.data.canonical_name).toBe('Laundry Liquid Front & Top Loader');
+    expect(Number(ok.body.data.net_quantity)).toBe(2);
+    expect((await authed(request(app).get('/api/admin/moderation/queue'))).body.data.find((p) => p.id === unknownProductId)).toBeUndefined();
+  });
+
+  it('can reject a product, and 404s on unknown ids', async () => {
+    const sub = await authed(request(app).post('/api/products/submissions')).send({ barcode: '9310072011097', suggestedName: 'junk' });
+    const rej = await authed(request(app).post(`/api/admin/products/${sub.body.data.productId}/reject`)).send({ note: 'not a product' });
+    expect(rej.status).toBe(200);
+    expect(rej.body.data.verification_status).toBe('rejected');
+    expect((await authed(request(app).post('/api/admin/products/nope/reject')).send({})).status).toBe(404);
+  });
+
+  it('records every admin decision in the audit trail without private content', async () => {
+    const res = await authed(request(app).get('/api/admin/audit'));
+    expect(res.status).toBe(200);
+    const actions = res.body.data.map((e) => e.action);
+    expect(actions).toEqual(expect.arrayContaining(['report.resolved', 'product.verify', 'product.reject']));
+    const verify = res.body.data.find((e) => e.action === 'product.verify');
+    expect(verify.actor_user_id).toBe(userId);
+    expect(JSON.parse(verify.detail).edited).toEqual(expect.arrayContaining(['canonicalName', 'netQuantity']));
+  });
+});
+
+describe('personal data export (spec 17)', () => {
+  it('requires authentication', async () => {
+    expect((await request(app).get('/api/auth/export')).status).toBe(401);
+  });
+
+  it('returns the user\'s own data without secrets or other people\'s data', async () => {
+    const res = await authed(request(app).get('/api/auth/export'));
+    expect(res.status).toBe(200);
+    expect(res.headers['content-disposition']).toContain('shelfsignal-export.json');
+    const d = res.body.data;
+    expect(d.format_version).toBe(1);
+    expect(d.user.email).toBe('test@shelfsignal.example');
+    expect(Array.isArray(d.watch_items)).toBe(true);
+    expect(Array.isArray(d.signals)).toBe(true);
+    const raw = JSON.stringify(d);
+    expect(raw).not.toContain('password_hash');
+    expect(raw).not.toContain('shopper@shelfsignal.example');
+    expect(raw).not.toContain('reporter@shelfsignal.example');
+  });
+
+  it('exposes the role on /me so clients can show admin tools', async () => {
+    const me = await authed(request(app).get('/api/auth/me'));
+    expect(me.body.data.role).toBe('admin');
   });
 });

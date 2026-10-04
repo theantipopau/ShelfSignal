@@ -18,6 +18,8 @@ const signalRoutes = require('./routes/signals');
 const retailerRoutes = require('./routes/retailers');
 const householdRoutes = require('./routes/households');
 const notificationRoutes = require('./routes/notifications');
+const shoppingListRoutes = require('./routes/shoppingList');
+const adminRoutes = require('./routes/admin');
 const db = require('./config/database');
 
 validate();
@@ -74,6 +76,8 @@ app.use('/api/signals', signalRoutes);
 app.use('/api/retailers', retailerRoutes);
 app.use('/api/households', householdRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/shopping-list', shoppingListRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Devices (FCM token registration) — foundation for the push pipeline.
 app.post('/api/devices', authenticateToken, async (req, res, next) => {

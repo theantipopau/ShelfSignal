@@ -2,6 +2,7 @@
 
 const express = require('express');
 const productService = require('../services/productService');
+const moderationService = require('../services/moderationService');
 const { authenticateToken } = require('../middleware/auth');
 const db = require('../config/database');
 
@@ -50,6 +51,20 @@ router.post('/submissions', authenticateToken, async (req, res, next) => {
     const { barcode, suggestedName, brand, category, netQuantity, unit } = req.body || {};
     const result = await productService.submitUnknownBarcode({ barcode, suggestedName, brand, category, netQuantity, unit });
     res.status(201).json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/products/:id/reports
+ * Body: { kind?: mismatch|wrong_details|other, retailerProductId?, note? } —
+ * "Report mismatch" (spec 9.8). Idempotent per reporter/product/kind.
+ */
+router.post('/:id/reports', authenticateToken, async (req, res, next) => {
+  try {
+    const result = await moderationService.fileReport(req.user.id, req.params.id, req.body || {});
+    res.status(result.already_reported ? 200 : 201).json({ success: true, data: result });
   } catch (err) {
     next(err);
   }

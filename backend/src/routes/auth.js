@@ -2,6 +2,7 @@
 
 const express = require('express');
 const authService = require('../services/authService');
+const exportService = require('../services/exportService');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -50,6 +51,17 @@ router.patch('/me', authenticateToken, async (req, res, next) => {
     const { displayName, postcode, isAdult } = req.body || {};
     const user = await authService.updateMe(req.user.id, { displayName, postcode, isAdult });
     res.json({ success: true, data: user });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** GET /api/auth/export — everything held about the signed-in user (privacy export). */
+router.get('/export', authenticateToken, async (req, res, next) => {
+  try {
+    const data = await exportService.exportUserData(req.user.id);
+    res.setHeader('Content-Disposition', 'attachment; filename="shelfsignal-export.json"');
+    res.json({ success: true, data });
   } catch (err) {
     next(err);
   }

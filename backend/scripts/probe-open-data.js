@@ -15,8 +15,10 @@ const off = require('../src/services/openFoodFactsClient');
 const openPrices = require('../src/services/openPricesClient');
 
 const FIXTURE_BARCODES = ['9310640020223', '9300675046251', '9312680820030'];
-// Well-known AU grocery GTINs for a realistic coverage read.
-const AU_HOUSEHOLD_BARCODES = ['9300654001577', '9310072011095', '9311959001016'];
+// Real Australian grocery GTINs (taken from Open Food Facts' own AU listing, all
+// GS1-valid). NOTE: an earlier version of this probe used made-up codes with bad
+// check digits, which made OFF coverage look like 0% — see retailer-api-research.md.
+const AU_HOUSEHOLD_BARCODES = ['9352042000342', '9300652010794', '9322969000015'];
 
 async function probeIdentity(barcode) {
   const identity = await off.fetchIdentity(barcode);
@@ -44,13 +46,25 @@ async function probeAudCorpus() {
   return { available: true, count: json.count ?? (Array.isArray(json.items) ? json.items.length : null) };
 }
 
+/** How many Australian products does Open Food Facts hold in total? */
+async function probeOffAuCorpus() {
+  const res = await globalThis.fetch(
+    'https://au.openfoodfacts.org/api/v2/search?page_size=1&fields=code',
+    { headers: { Accept: 'application/json', 'User-Agent': 'ShelfSignal/1.0 (coverage probe)' } }
+  );
+  if (!res.ok) return { available: false, status: res.status };
+  const json = await res.json();
+  return { available: true, count: json.count ?? null };
+}
+
 async function main() {
-  const report = { probedAt: new Date().toISOString(), identity: [], prices: [], audCorpus: null };
+  const report = { probedAt: new Date().toISOString(), identity: [], prices: [], audCorpus: null, offAuCorpus: null };
   const barcodes = [...FIXTURE_BARCODES, ...AU_HOUSEHOLD_BARCODES];
 
   for (const b of barcodes) report.identity.push(await probeIdentity(b));
   for (const b of barcodes) report.prices.push(await probePrices(b));
   report.audCorpus = await probeAudCorpus();
+  report.offAuCorpus = await probeOffAuCorpus();
 
   console.log(JSON.stringify(report, null, 2));
 }
