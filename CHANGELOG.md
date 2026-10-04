@@ -31,7 +31,10 @@ Driven by a full review of the spec, docs and code (see Docs/repository-assessme
 - Personal data export (`GET /api/auth/export`); `role` exposed on `/me`.
 - Docs reconciled: backlog rewritten against reality, assessment refreshed, ADR-0007..0009.
 
-**Tests:** backend 125 → **159** (incl. 12 real-Postgres); mobile 7 → **10**.
+- Alcohol adult opt-in (spec 9.12): watching a liquor / ABV product requires `is_adult`
+  (403 `adult_confirmation_required`); withdrawing confirmation silences existing alcohol items.
+
+**Tests:** backend 125 → **163** (incl. 12 real-Postgres); mobile 7 → **10**.
 
 ## 2026-10-04 — Phase 4: household sharing, notification controls, sample polish
 

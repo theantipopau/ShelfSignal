@@ -11,7 +11,7 @@ ShelfSignal is a well-engineered vertical slice with a sound, tested signal engi
 
 | Area | State | Evidence |
 |---|---|---|
-| Backend API (Express + Postgres) | Strong. Auth, products, watchlist, signals, households, notification prefs, shopping list, reports, moderation, audit, export. | 159 tests (147 contract + 12 real-Postgres), lint clean, `npm audit` 0 high |
+| Backend API (Express + Postgres) | Strong. Auth, products, watchlist, signals, households, notification prefs, shopping list, reports, moderation, audit, export. | 163 tests (151 contract + 12 real-Postgres), lint clean, `npm audit` 0 high |
 | Database | Migrations 001–005, validated on real Postgres semantics (PGlite locally, Postgres 16 service in CI) | `tests/postgres.integration.test.js` |
 | Signal engine | Pure module, mirrored in Dart demo and web sample; freshness gate tolerates clock skew | `signalEvaluator.test.js` |
 | Mobile (Flutter) | Shell, theme, demo mode, camera scanning, secure token storage. **No live-mode screens for households / notification prefs / shopping list / reports; no offline cache.** | `flutter analyze` clean, 10 tests |
@@ -49,7 +49,7 @@ ShelfSignal is a well-engineered vertical slice with a sound, tested signal engi
 3. Mobile offline: Drift cache, scan queue, Continuous Scan.
 4. FCM push pipeline (create Firebase project; sender behind the existing `shouldDeliver` rules).
 5. Auth hardening: refresh-token rotation, password reset, Sign in with Apple / Google.
-6. Alcohol opt-in enforcement end to end.
+6. Alcohol: in-app opt-in UI and responsible-service messaging (backend enforcement is done).
 7. Multiple rules per watch item.
 8. OpenAPI + `/v1` versioning + idempotency keys.
 9. Deployment: Dockerfile, Caddy, staging, encrypted backups with a restore test, structured logging.

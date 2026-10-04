@@ -18,7 +18,7 @@ Legend: `[x]` done and tested · `[~]` partly done (note says what is missing) �
 | 4 Household & premium UX | Backend and web sample done. **Flutter screens for households, notification preferences, shopping list and reports are not built.** |
 | 5 Closed beta | Not started (no deployment, backups, push, store pipeline). |
 
-Quality gates today: backend 159 tests (147 contract + 12 real-Postgres integration) (PGlite locally, Postgres 16 service in CI), `eslint` clean, `npm audit` 0 high, gitleaks in CI; mobile `flutter analyze` clean + 10 tests.
+Quality gates today: backend 163 tests (151 contract + 12 real-Postgres integration) (PGlite locally, Postgres 16 service in CI), `eslint` clean, `npm audit` 0 high, gitleaks in CI; mobile `flutter analyze` clean + 10 tests.
 
 ---
 
@@ -47,7 +47,8 @@ Quality gates today: backend 159 tests (147 contract + 12 real-Postgres integrat
 - [ ] Device registration is stored; **FCM send pipeline not built** (needs a Firebase project)
 - [ ] Refresh-token rotation (currently a single 7-day JWT), Sign in with Apple / Google, password reset
 - [ ] OpenAPI document, `/v1` versioning, idempotency keys, cursor pagination
-- [ ] Alcohol: `is_adult` stored, but no opt-in enforcement on alcohol watch items / alerts yet
+- [x] Alcohol adult opt-in (spec 9.12): tracking an alcohol product needs `is_adult` (403 `adult_confirmation_required`); withdrawing it silences existing alcohol items
+- [ ] Alcohol, remaining: responsible-service messaging in the app, member-price disclosure, vintage/pack handling in matching
 - [ ] Multiple rules per watch item (spec §9.6 lists several rule types per product)
 - [ ] Unknown-barcode photo upload (object storage)
 

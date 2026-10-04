@@ -47,7 +47,7 @@ cp .env.example .env            # defaults match docker-compose
 npm run migrate:seed            # schema + fixture data
 npm run dev                     # http://localhost:3000
 npm run make-admin -- you@example.com   # price ingestion + moderation are admin-only
-npm test                        # 147 contract tests + 12 real-Postgres tests (159 total);
+npm test                        # 151 contract tests + 12 real-Postgres tests (163 total);
                                 # no database server needed (in-process PGlite)
 ```
 

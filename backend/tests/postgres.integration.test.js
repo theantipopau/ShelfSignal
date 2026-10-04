@@ -95,7 +95,7 @@ describe('PostgreSQL: migrations and critical path', () => {
   it('keeps ingestion admin-only, then allows it after promotion', async () => {
     const body = { barcode: '9312680820030', retailerSlug: 'dan-murphys', price: 49.9 };
     expect((await as(token, request(app).post('/api/retailers/ingest-fixture')).send(body)).status).toBe(403);
-    await db.query("UPDATE users SET role = 'admin' WHERE id = $1", [userId]);
+    await db.query("UPDATE users SET role = 'admin', is_adult = TRUE WHERE id = $1", [userId]);
   });
 
   it('resolves a seeded barcode and rejects a bad check digit', async () => {

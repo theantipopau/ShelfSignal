@@ -407,7 +407,7 @@ beforeAll(async () => {
   expect(res.status).toBe(201);
   authedToken = res.body.data.token;
   userId = res.body.data.user.id;
-  sqlite.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(userId);
+  sqlite.prepare("UPDATE users SET role = 'admin', is_adult = 1 WHERE id = ?").run(userId);
 });
 
 function authed(req) {
@@ -1008,7 +1008,8 @@ describe('phase 4: household sharing (spec 9.9)', () => {
     expect(partnerIds).toContain(shared.body.data.id);
     expect(partnerIds).not.toContain(privateItem.body.data.id);
 
-    // The partner shares an item of their own: it reaches the owner's feed...
+    // The partner shares an item of their own (whisky, so they confirm adulthood first): it reaches the owner's feed...
+    await request(app).patch('/api/auth/me').set('Authorization', `Bearer ${secondToken}`).send({ isAdult: true });
     const partnerShared = await request(app)
       .post('/api/watchlist')
       .set('Authorization', `Bearer ${secondToken}`)
@@ -1521,5 +1522,58 @@ describe('personal data export (spec 17)', () => {
   it('exposes the role on /me so clients can show admin tools', async () => {
     const me = await authed(request(app).get('/api/auth/me'));
     expect(me.body.data.role).toBe('admin');
+  });
+});
+
+describe('alcohol requires adult confirmation (spec 9.12)', () => {
+  let minorToken;
+  let minorId;
+  let whiskyId;
+  let sauceId;
+
+  beforeAll(async () => {
+    const reg = await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'minor@shelfsignal.example', password: 'correct-horse-battery' });
+    minorToken = reg.body.data.token;
+    minorId = reg.body.data.user.id;
+    whiskyId = (await authed(request(app).get('/api/products/search?q=whisky'))).body.data[0].id;
+    sauceId = (await authed(request(app).get('/api/products/search?q=sauce'))).body.data[0].id;
+  });
+
+  const asMinor = (req) => req.set('Authorization', `Bearer ${minorToken}`);
+
+  it('blocks tracking an alcohol product until the user confirms they are an adult', async () => {
+    const res = await asMinor(request(app).post('/api/watchlist')).send({ productId: whiskyId });
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('adult_confirmation_required');
+    expect((await asMinor(request(app).get('/api/watchlist'))).body.data.length).toBe(0);
+  });
+
+  it('does not restrict non-alcohol products', async () => {
+    expect((await asMinor(request(app).post('/api/watchlist')).send({ productId: sauceId })).status).toBe(201);
+  });
+
+  it('allows alcohol once the adult confirmation is recorded', async () => {
+    const patch = await asMinor(request(app).patch('/api/auth/me')).send({ isAdult: true });
+    expect(patch.status).toBe(200);
+    const res = await asMinor(request(app).post('/api/watchlist')).send({ productId: whiskyId });
+    expect(res.status).toBe(201);
+  });
+
+  it('goes quiet again if the confirmation is withdrawn (alcohol can be fully disabled)', async () => {
+    const watch = (await asMinor(request(app).get('/api/watchlist'))).body.data.find((w) => w.product_id === whiskyId);
+    await asMinor(request(app).post(`/api/watchlist/${watch.id}/rules`)).send({ ruleType: 'target_price', targetPrice: 500 });
+    await asMinor(request(app).patch('/api/auth/me')).send({ isAdult: false });
+
+    const before = sqlite.prepare('SELECT COUNT(*) AS n FROM signal_events WHERE watch_item_id = ?').get(watch.id).n;
+    await authed(request(app).post('/api/retailers/ingest-fixture')).send({
+      barcode: '9312680820030',
+      retailerSlug: 'dan-murphys',
+      price: 12.34,
+    });
+    const after = sqlite.prepare('SELECT COUNT(*) AS n FROM signal_events WHERE watch_item_id = ?').get(watch.id).n;
+    expect(after).toBe(before);
+    expect(minorId).toBeTruthy();
   });
 });

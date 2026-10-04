@@ -19,12 +19,17 @@ const { config } = require('../config');
  */
 async function evaluateWatchItem(watchItemId, now = new Date()) {
   const [item] = await db.query(
-    `SELECT w.*, p.canonical_name, p.brand, p.variant
+    `SELECT w.*, p.canonical_name, p.brand, p.variant, p.category, p.alcohol_abv,
+            (SELECT u.is_adult FROM users u WHERE u.id = w.owner_user_id) AS owner_is_adult
      FROM watch_items w JOIN products p ON p.id = w.product_id
      WHERE w.id = $1`,
     [watchItemId],
   );
   if (!item) throw new NotFoundError('Watch item not found');
+
+  // Spec 9.12: alcohol is evaluated only for users who confirmed they are adults
+  // (including after withdrawing that confirmation: the item goes quiet).
+  if (watchlistService.isAlcoholProduct(item) && !item.owner_is_adult) return [];
 
   const rule = await watchlistService.getRuleForWatchItem(watchItemId);
   if (!rule) return [];

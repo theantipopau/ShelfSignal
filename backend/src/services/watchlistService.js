@@ -1,7 +1,7 @@
 'use strict';
 
 const db = require('../config/database');
-const { NotFoundError, ValidationError } = require('../utils/errorHandler');
+const { AppError, NotFoundError, ValidationError } = require('../utils/errorHandler');
 
 const RULE_TYPES = new Set(['target_price', 'discount_percent', 'near_historical_low', 'any_price_drop']);
 
@@ -45,11 +45,27 @@ async function listWatchItems(userId) {
   );
 }
 
+/** Alcohol products need explicit adult confirmation (spec 9.12). */
+function isAlcoholProduct(product) {
+  return product.category === 'liquor' || (product.alcohol_abv != null && Number(product.alcohol_abv) > 0);
+}
+
 async function createWatchItem(userId, { productId, visibility = 'private', desiredQuantity = null }) {
   if (!productId) throw new ValidationError('productId is required');
 
-  const [product] = await db.query('SELECT id FROM products WHERE id = $1', [productId]);
+  const [product] = await db.query('SELECT id, category, alcohol_abv FROM products WHERE id = $1', [productId]);
   if (!product) throw new NotFoundError('Product not found');
+
+  if (isAlcoholProduct(product)) {
+    const [user] = await db.query('SELECT is_adult FROM users WHERE id = $1', [userId]);
+    if (!user || !user.is_adult) {
+      throw new AppError(
+        'Confirm you are 18 or over in your profile to track alcohol products',
+        403,
+        'adult_confirmation_required',
+      );
+    }
+  }
 
   const [item] = await db.query(
     `INSERT INTO watch_items (owner_user_id, product_id, visibility, desired_quantity)
@@ -175,6 +191,7 @@ async function getRuleForWatchItem(watchItemId) {
 }
 
 module.exports = {
+  isAlcoholProduct,
   listWatchItems,
   createWatchItem,
   updateWatchItem,
