@@ -26,6 +26,13 @@ const config = {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
 
+  cors: {
+    // Native apps do not need CORS. Browsers get access only from listed origins
+    // (CORS_ORIGINS, comma-separated); outside production any origin is allowed
+    // so the web sample and local tooling work.
+    origins: (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean),
+  },
+
   signals: {
     // Master Prompt §14: only Verified / High-confidence offers may push alerts.
     minimumPushMatchConfidence: parseFloat(process.env.MINIMUM_PUSH_MATCH_CONFIDENCE || '0.75'),

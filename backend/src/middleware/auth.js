@@ -2,7 +2,8 @@
 
 const jwt = require('jsonwebtoken');
 const { config } = require('../config');
-const { UnauthorizedError } = require('../utils/errorHandler');
+const db = require('../config/database');
+const { UnauthorizedError, ForbiddenError } = require('../utils/errorHandler');
 
 function extractToken(req) {
   const header = req.headers.authorization || '';
@@ -39,4 +40,21 @@ function optionalAuth(req, res, next) {
   next();
 }
 
-module.exports = { authenticateToken, optionalAuth };
+/**
+ * Requires an authenticated user whose *current* database role is 'admin'.
+ * Must run after authenticateToken. The role is looked up per request so a
+ * demoted admin loses access immediately.
+ */
+async function requireAdmin(req, res, next) {
+  try {
+    const rows = await db.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+    if (!rows[0] || rows[0].role !== 'admin') {
+      return next(new ForbiddenError('Administrator access required'));
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { authenticateToken, optionalAuth, requireAdmin };

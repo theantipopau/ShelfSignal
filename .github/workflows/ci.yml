@@ -9,6 +9,18 @@ jobs:
   backend:
     name: Backend — test & lint
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: shelfsignal
+          POSTGRES_PASSWORD: shelfsignal
+          POSTGRES_DB: shelfsignal_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U shelfsignal -d shelfsignal_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     defaults:
       run:
         working-directory: backend
@@ -28,11 +40,34 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Dependency audit (production deps, high+)
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Unit & contract tests
         run: npm test
         env:
           NODE_ENV: test
           JWT_SECRET: ci-test-secret
+
+      - name: PostgreSQL integration (real server)
+        run: npx jest tests/postgres.integration.test.js
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-test-secret
+          PG_INTEGRATION: '1'
+          DATABASE_URL: postgresql://shelfsignal:shelfsignal@localhost:5432/shelfsignal_ci
+          NODE_OPTIONS: --experimental-vm-modules
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   mobile:
     name: Mobile — analyze & test

@@ -3,13 +3,14 @@
 const db = require('../config/database');
 const { NotFoundError, ValidationError } = require('../utils/errorHandler');
 const { validateBarcode } = require('../utils/barcode');
+const openFoodFacts = require('./openFoodFactsClient');
 
 /**
  * Canonical product catalogue + barcode resolution.
  * Canonical products and retailer listings are separate entities (spec section 12).
  */
 
-async function resolveBarcode(rawBarcode) {
+async function resolveBarcode(rawBarcode, { lookupExternal = false } = {}) {
   const check = validateBarcode(rawBarcode);
   if (!check.valid) {
     throw new ValidationError(`Invalid barcode: ${check.reason}`);
@@ -30,6 +31,13 @@ async function resolveBarcode(rawBarcode) {
 
   if (rows.length === 0) {
     // Unknown barcode: caller may submit it for moderation (spec section 9.3).
+    // Phase 0 (Docs/retailer-api-research.md): enrich with a free Open Food
+    // Facts identity candidate — returned as `external`, never persisted and
+    // never verified; the product stays unverified until moderated.
+    if (lookupExternal && openFoodFacts.isEnabled()) {
+      const external = await openFoodFacts.fetchIdentity(barcode);
+      if (external) return { found: false, barcode, barcodeType: check.type, external };
+    }
     return { found: false, barcode, barcodeType: check.type };
   }
 
@@ -84,8 +92,10 @@ async function searchProducts({ q, category, limit = 20 }) {
 /**
  * Unknown-barcode submission: create an unverified product for local tracking,
  * pending moderation. Deliberately minimal — details are curated by admins.
+ * Optional identity fields let the client prefill from an Open Food Facts
+ * candidate (Phase 0); everything lands as `unverified`, never auto-verified.
  */
-async function submitUnknownBarcode({ barcode, suggestedName, brand }) {
+async function submitUnknownBarcode({ barcode, suggestedName, brand, category = null, netQuantity = null, unit = null }) {
   const check = validateBarcode(barcode);
   if (!check.valid) throw new ValidationError(`Invalid barcode: ${check.reason}`);
 
@@ -98,11 +108,13 @@ async function submitUnknownBarcode({ barcode, suggestedName, brand }) {
   }
 
   return db.withTransaction(async (client) => {
-    const [product] = await client.query(
-      `INSERT INTO products (canonical_name, brand, verification_status)
-       VALUES ($1, $2, 'unverified') RETURNING id`,
-      [suggestedName || 'Unverified product', brand || null],
-    );
+    // Note: client.query is the raw pg client — it returns a result object,
+    // not a rows array (unlike db.query). Destructure `.rows`.
+    const [product] = (await client.query(
+      `INSERT INTO products (canonical_name, brand, category, net_quantity, unit, verification_status)
+       VALUES ($1, $2, $3, $4, $5, 'unverified') RETURNING id`,
+      [suggestedName || 'Unverified product', brand || null, category, netQuantity, unit],
+    )).rows;
     await client.query(
       `INSERT INTO product_barcodes (barcode, product_id, barcode_type) VALUES ($1, $2, $3)`,
       [check.normalized, product.id, check.type],

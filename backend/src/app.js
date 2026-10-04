@@ -16,6 +16,8 @@ const productRoutes = require('./routes/products');
 const watchlistRoutes = require('./routes/watchlist');
 const signalRoutes = require('./routes/signals');
 const retailerRoutes = require('./routes/retailers');
+const householdRoutes = require('./routes/households');
+const notificationRoutes = require('./routes/notifications');
 const db = require('./config/database');
 
 validate();
@@ -24,7 +26,11 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors());
+app.use(
+  cors({
+    origin: config.isProduction || config.cors.origins.length ? config.cors.origins : true,
+  }),
+);
 
 // Request ID for tracing (spec section 17).
 app.use((req, res, next) => {
@@ -66,6 +72,8 @@ app.use('/api/products', productRoutes);
 app.use('/api/watchlist', watchlistRoutes);
 app.use('/api/signals', signalRoutes);
 app.use('/api/retailers', retailerRoutes);
+app.use('/api/households', householdRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Devices (FCM token registration) — foundation for the push pipeline.
 app.post('/api/devices', authenticateToken, async (req, res, next) => {

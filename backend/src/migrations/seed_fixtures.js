@@ -11,7 +11,11 @@ const db = require('../config/database');
 const RETAILERS = [
   { slug: 'coles', name: 'Coles', website: 'https://www.coles.com.au', adapter: null },
   { slug: 'woolworths', name: 'Woolworths', website: 'https://www.woolworths.com.au', adapter: null },
+  { slug: 'aldi', name: 'ALDI', website: 'https://www.aldi.com.au', adapter: null },
   { slug: 'dan-murphys', name: "Dan Murphy's", website: 'https://www.danmurphys.com.au', adapter: null },
+  { slug: 'bws', name: 'BWS', website: 'https://www.bws.com.au', adapter: null },
+  { slug: 'liquorland', name: 'Liquorland', website: 'https://www.liquorland.com.au', adapter: null },
+  { slug: 'bottle-mart', name: 'Bottle Mart', website: 'https://www.bottlemart.com.au', adapter: null },
 ];
 
 const PRODUCTS = [
@@ -31,7 +35,7 @@ const PRODUCTS = [
     ],
   },
   {
-    barcode: '9300675046254',
+    barcode: '9300675046251',
     canonical_name: 'Laundry Liquid',
     brand: 'ExampleHome',
     variant: 'Fresh Sensitive',

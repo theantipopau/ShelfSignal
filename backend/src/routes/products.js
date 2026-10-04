@@ -27,11 +27,13 @@ router.get('/search', async (req, res, next) => {
 /**
  * POST /api/products/resolve-barcode
  * Body: { barcode }. Returns the canonical product for a GTIN, or found:false
- * when unknown (the app then offers the unknown-barcode flow).
+ * when unknown (the app then offers the unknown-barcode flow). Unknown
+ * barcodes are enriched server-side with a free Open Food Facts identity
+ * candidate (`data.external`) — unverified, never persisted (Phase 0).
  */
 router.post('/resolve-barcode', authenticateToken, async (req, res, next) => {
   try {
-    const result = await productService.resolveBarcode(req.body ? req.body.barcode : null);
+    const result = await productService.resolveBarcode(req.body ? req.body.barcode : null, { lookupExternal: true });
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);
@@ -45,8 +47,8 @@ router.post('/resolve-barcode', authenticateToken, async (req, res, next) => {
  */
 router.post('/submissions', authenticateToken, async (req, res, next) => {
   try {
-    const { barcode, suggestedName, brand } = req.body || {};
-    const result = await productService.submitUnknownBarcode({ barcode, suggestedName, brand });
+    const { barcode, suggestedName, brand, category, netQuantity, unit } = req.body || {};
+    const result = await productService.submitUnknownBarcode({ barcode, suggestedName, brand, category, netQuantity, unit });
     res.status(201).json({ success: true, data: result });
   } catch (err) {
     next(err);
@@ -88,8 +90,8 @@ router.get('/:id/price-history', async (req, res, next) => {
   try {
     const rows = await db.query(
       `SELECT po.observed_price, po.unit_price, po.member_price, po.promotion_type,
-              po.availability_status, po.observed_at, po.source_method, po.confidence,
-              r.slug AS retailer_slug, r.name AS retailer_name
+              po.availability_status, po.observed_at, po.source_method, po.source_reference,
+              po.confidence, r.slug AS retailer_slug, r.name AS retailer_name
        FROM price_observations po
        JOIN retailer_products rp ON rp.id = po.retailer_product_id
        JOIN retailers r ON r.id = rp.retailer_id
