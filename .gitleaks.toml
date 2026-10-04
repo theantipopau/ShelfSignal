@@ -1,0 +1,10 @@
+title = "ShelfSignal gitleaks config"
+
+[extend]
+useDefault = true
+
+# Narrow, reviewed false positives only. Do not add broad path allowlists.
+[[allowlists]]
+description = "localStorage namespace string in the web sample (not a credential)"
+paths = ['''web/index\.html''']
+regexes = ['''STORE_KEY\s*=\s*.shelfsignal\.web\.v1.''']
