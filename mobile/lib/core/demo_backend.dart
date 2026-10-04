@@ -31,7 +31,7 @@ class DemoBackend {
       netQuantity: 2000,
       unit: 'ml',
       verificationStatus: 'verified',
-      barcode: '9300675046257',
+      barcode: '9300675046251',
     ),
     const SsProduct(
       id: 'demo-p3',

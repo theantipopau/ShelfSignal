@@ -20,6 +20,7 @@ dependencies:
   intl: ^0.19.0
   http: ^1.2.0
   shared_preferences: ^2.2.3
+  flutter_secure_storage: ^9.2.2
 
   # Barcode Scanning (camera capture with opt-in permission timing, spec 9.2/9.3)
   # Firebase (disabled until google-services.json / GoogleService-Info.plist are added;

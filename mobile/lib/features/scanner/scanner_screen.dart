@@ -58,7 +58,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
   static const Map<String, String> _demoBarcodes = {
     '9310640020223': 'ExampleBrand Tomato Pasta Sauce 500mL',
-    '9300675046257': 'ExampleHome Laundry Liquid 2L',
+    '9300675046251': 'ExampleHome Laundry Liquid 2L',
     '9312680820030': 'ExampleDistillery Two Oak 700mL',
   };
 

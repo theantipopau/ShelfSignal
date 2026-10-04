@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'token_store.dart';
+
 /// API base URL override. In demo mode no backend is contacted at all.
 const String kDefaultApiBase = 'http://localhost:3000';
 const String kApiBasePrefKey = 'ss.api_base';
@@ -26,8 +28,11 @@ class ApiException implements Exception {
 /// Thin HTTP client for the ShelfSignal API with JWT attach + refresh-free
 /// session handling. All responses use the { success, data } envelope.
 class ApiClient {
-  ApiClient({http.Client? client, this.mode = ApiMode.demo})
-      : _client = client ?? http.Client();
+  ApiClient({http.Client? client, this.mode = ApiMode.demo, TokenStore? tokenStore})
+      : _client = client ?? http.Client(),
+        _tokens = tokenStore ?? SecureTokenStore();
+
+  final TokenStore _tokens;
 
   final http.Client _client;
   ApiMode mode;
@@ -44,9 +49,34 @@ class ApiClient {
   Future<void> loadPersisted() async {
     final prefs = await SharedPreferences.getInstance();
     _base = prefs.getString(kApiBaseKeyAlias) ?? kDefaultApiBase;
-    _token = prefs.getString(kTokenPrefKey);
+    _token = await _loadToken(prefs);
     final demo = prefs.getBool(kDemoModePrefKey) ?? true;
     mode = demo ? ApiMode.demo : ApiMode.live;
+  }
+
+  /// Reads the token from secure storage. A token left in plain preferences by
+  /// an older build is migrated across and then removed from preferences.
+  Future<String?> _loadToken(SharedPreferences prefs) async {
+    String? secure;
+    try {
+      secure = await _tokens.read();
+    } catch (_) {
+      secure = null; // secure storage unavailable: behave as signed out
+    }
+    final legacy = prefs.getString(kTokenPrefKey);
+    if (legacy != null) {
+      try {
+        if (secure == null) {
+          await _tokens.write(legacy);
+          secure = legacy;
+        }
+      } catch (_) {
+        // keep the legacy token for this launch only
+        secure ??= legacy;
+      }
+      await prefs.remove(kTokenPrefKey);
+    }
+    return secure;
   }
 
   Future<void> persistMode() async {
@@ -62,11 +92,14 @@ class ApiClient {
 
   Future<void> setToken(String? token) async {
     _token = token;
-    final prefs = await SharedPreferences.getInstance();
-    if (token == null) {
-      await prefs.remove(kTokenPrefKey);
-    } else {
-      await prefs.setString(kTokenPrefKey, token);
+    try {
+      if (token == null) {
+        await _tokens.clear();
+      } else {
+        await _tokens.write(token);
+      }
+    } catch (_) {
+      // Secure storage unavailable: the session stays in memory only.
     }
   }
 
