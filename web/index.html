@@ -1,0 +1,1932 @@
+<!DOCTYPE html>
+<html lang="en-AU" data-palette="calm">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShelfSignal — web sample</title>
+  <meta name="description" content="ShelfSignal web sample: scan what you buy, get the signal when the price is right. Demo with fixture data." />
+  <style>
+    /* ShelfSignal design tokens — Master Prompt §10, three curated palettes.
+       Semantics are fixed in EVERY palette: signal green = verified positive,
+       amber = conditional / near-target, red = errors only.
+       Palette lives on <html data-palette>, light/dark on <html data-theme>. */
+
+    /* --- Premium Calm: deep charcoal + signal green.
+           Matches the Flutter SsColors tokens exactly (the spec default). --- */
+    [data-palette="calm"] {
+      --bg: #121417; --bg-raise: #1A1D21; --bg-card: #1F2328;
+      --border: #31363C; --text: #F4F4F2; --text-dim: #B9BDB9;
+      --accent: #2FBF9B; --accent-strong: #2FBF9B; --on-accent: #06281F;
+      --signal: #2FBF9B; --amber: #E8A33D; --red: #D65A4A; --info: #5A8FD6;
+      --ring: rgba(47, 191, 155, 0.4); --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      --backdrop: #0A0C0D;
+      color-scheme: dark;
+    }
+    [data-palette="calm"][data-theme="light"] {
+      --bg: #FAF8F5; --bg-raise: #F2EEE8; --bg-card: #FFFFFF;
+      --border: #DDD6CC; --text: #1C1E20; --text-dim: #5C6058;
+      --accent: #15795E; --accent-strong: #15795E; --on-accent: #FFFFFF;
+      --signal: #15795E; --amber: #8F6412; --red: #A8402F; --info: #2F63B8;
+      --ring: rgba(21, 121, 94, 0.3); --shadow: 0 8px 24px rgba(60, 50, 30, 0.1);
+      --backdrop: #E9E3DA;
+      color-scheme: light;
+    }
+
+    /* --- Midnight Indigo: blue-black surfaces, violet accent,
+           green kept for signal semantics (2026 dark + bold accent). --- */
+    [data-palette="indigo"] {
+      --bg: #101320; --bg-raise: #171A2B; --bg-card: #1C2033;
+      --border: #2F3552; --text: #F2F3F8; --text-dim: #A8AEC9;
+      --accent: #8B7CF6; --accent-strong: #8B7CF6; --on-accent: #100C2B;
+      --signal: #2FBF9B; --amber: #E8A33D; --red: #D65A4A; --info: #5A8FD6;
+      --ring: rgba(139, 124, 246, 0.42); --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      --backdrop: #08090F;
+      color-scheme: dark;
+    }
+    [data-palette="indigo"][data-theme="light"] {
+      --bg: #F6F6FC; --bg-raise: #EFEFF9; --bg-card: #FFFFFF;
+      --border: #E1E1F2; --text: #191A25; --text-dim: #565A74;
+      --accent: #5B4BD6; --accent-strong: #5B4BD6; --on-accent: #FFFFFF;
+      --signal: #15795E; --amber: #8F6412; --red: #A8402F; --info: #2F63B8;
+      --ring: rgba(91, 75, 214, 0.35); --shadow: 0 8px 24px rgba(40, 40, 90, 0.1);
+      --backdrop: #E6E5F4;
+      color-scheme: light;
+    }
+
+    /* --- Deep Ocean: slate-teal surfaces, sky-blue accent. --- */
+    [data-palette="ocean"] {
+      --bg: #0D1418; --bg-raise: #121B21; --bg-card: #17212A;
+      --border: #26343E; --text: #EFF4F6; --text-dim: #A3B2BA;
+      --accent: #38BDF8; --accent-strong: #38BDF8; --on-accent: #04222F;
+      --signal: #2FBF9B; --amber: #E8A33D; --red: #D65A4A; --info: #5A8FD6;
+      --ring: rgba(56, 189, 248, 0.4); --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      --backdrop: #06090B;
+      color-scheme: dark;
+    }
+    [data-palette="ocean"][data-theme="light"] {
+      --bg: #F4F9FB; --bg-raise: #EAF3F7; --bg-card: #FFFFFF;
+      --border: #D4E3EB; --text: #13212B; --text-dim: #4E606C;
+      --accent: #0B6E99; --accent-strong: #0B6E99; --on-accent: #FFFFFF;
+      --signal: #15795E; --amber: #8F6412; --red: #A8402F; --info: #2F63B8;
+      --ring: rgba(11, 110, 153, 0.35); --shadow: 0 8px 24px rgba(30, 60, 80, 0.1);
+      --backdrop: #E3EDF2;
+      color-scheme: light;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; background: var(--backdrop); color: var(--text); line-height: 1.55; }
+    /* Phone-width app shell — this sample mirrors the Flutter app's frame. */
+    .shell { max-width: 430px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; background: var(--bg); border-inline: 1px solid var(--border); position: relative; }
+    .topbar { display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 1rem; background: var(--bg-raise); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+    .brand { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--text); font-weight: 700; letter-spacing: 0.01em; margin-right: auto; }
+    .brand-mark { color: var(--accent); font-size: 1.2rem; }
+    /* Bottom navigation — mirrors the Flutter NavigationBar destinations. */
+    .tabbar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: min(430px, 100%); display: grid; grid-template-columns: repeat(4, 1fr); background: color-mix(in srgb, var(--bg-raise) 94%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--border); z-index: 20; padding-bottom: env(safe-area-inset-bottom, 0px); }
+    .tabbar[hidden] { display: none; }
+    .tab { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.1rem; padding: 0.45rem 0 0.4rem; min-height: 56px; color: var(--text-dim); text-decoration: none; font-size: 0.68rem; font-weight: 600; }
+    .tab-ico { display: grid; place-items: center; width: 56px; height: 30px; border-radius: 999px; transition: background 0.15s; }
+    .tab svg { width: 22px; height: 22px; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); }
+    .tab.active .tab-ico { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+    .tab-badge { display: block; position: absolute; top: 5px; left: calc(50% + 5px); min-width: 1.05rem; height: 1.05rem; padding: 0 0.25rem; border-radius: 999px; background: var(--accent-strong); color: var(--on-accent); font-size: 0.68rem; line-height: 1.05rem; font-weight: 700; text-align: center; }
+    .tab-badge[hidden] { display: none; }
+    .icon-btn { background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 0.35rem 0.6rem; cursor: pointer; }
+    .demo-banner { background: color-mix(in srgb, var(--amber) 14%, var(--bg-raise)); border-bottom: 1px solid var(--border); color: var(--text); font-size: 0.9rem; padding: 0.55rem 1.25rem; }
+    .app { flex: 1; padding: 1.15rem 1rem 2rem; }
+    .footer { border-top: 1px solid var(--border); color: var(--text-dim); font-size: 0.85rem; text-align: center; padding: 1.25rem 1rem calc(4.75rem + env(safe-area-inset-bottom, 0px)); }
+    h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 0.75rem; }
+    h2 { font-size: 1.3rem; margin: 0 0 0.9rem; }
+    h3 { font-size: 1.05rem; margin: 0 0 0.5rem; }
+    h4 { font-size: 0.95rem; margin: 0 0 0.5rem; }
+    .small-caps { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); font-weight: 700; }
+    p.lede { color: var(--text-dim); font-size: 1.05rem; max-width: 60ch; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 1.1rem 1.25rem; box-shadow: var(--shadow); }
+    .card + .card { margin-top: 1rem; }
+    .grid { display: grid; gap: 1rem; }
+    .grid.two { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .btn { display: inline-block; background: var(--accent-strong); color: var(--on-accent); border: none; border-radius: 10px; padding: 0.6rem 1.1rem; font-weight: 700; font-size: 0.95rem; cursor: pointer; text-decoration: none; font-family: inherit; }
+    .btn:hover { filter: brightness(1.08); }
+    .btn.secondary { background: var(--bg-raise); color: var(--text); border: 1px solid var(--border); }
+    .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); }
+    .btn.danger { background: var(--red); color: #fff; }
+    .btn.small { padding: 0.35rem 0.7rem; font-size: 0.85rem; }
+    input, select { width: 100%; background: var(--bg-raise); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 0.8rem; font-size: 1rem; font-family: inherit; }
+    input:focus, select:focus, .btn:focus-visible, a:focus-visible { outline: 3px solid var(--ring); outline-offset: 1px; }
+    label { display: block; font-weight: 600; margin: 0.75rem 0 0.3rem; font-size: 0.9rem; }
+    .form-row { display: grid; gap: 0 1rem; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+    .chip { display: inline-block; background: var(--bg-raise); border: 1px solid var(--border); color: var(--text); border-radius: 999px; padding: 0.3rem 0.8rem; font-size: 0.85rem; cursor: pointer; margin: 0.2rem 0.2rem 0.2rem 0; font-family: inherit; }
+    .chip:hover { border-color: var(--accent); }
+    .chip.muted { color: var(--text-dim); border-style: dashed; text-decoration: line-through; background: transparent; }
+    .tag { display: inline-block; background: transparent; border: 1px solid var(--border); color: var(--text-dim); border-radius: 999px; padding: 0.12rem 0.6rem; font-size: 0.75rem; margin-left: 0.35rem; vertical-align: middle; }
+    .status { display: inline-block; border-radius: 999px; padding: 0.12rem 0.6rem; font-size: 0.75rem; font-weight: 600; margin-left: 0.35rem; vertical-align: middle; }
+    .status.pending { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber); }
+    .status.ok { background: color-mix(in srgb, var(--signal) 16%, transparent); color: var(--signal); }
+    .status.err { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
+    .ds-list { list-style: none; padding: 0; margin: 0.6rem 0 0; display: grid; gap: 0.7rem; }
+    .ds-list li { background: var(--bg-raise); border: 1px solid var(--border); border-radius: 10px; padding: 0.7rem 0.9rem; }
+    .ds-name { font-weight: 650; }
+    .ds-note { display: block; color: var(--text-dim); font-size: 0.9rem; margin-top: 0.3rem; }
+    .status { display: inline-block; border-radius: 999px; font-size: 0.78rem; font-weight: 700; padding: 0.15rem 0.6rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .status.verified { background: color-mix(in srgb, var(--signal) 22%, transparent); color: var(--signal); }
+    .status.unverified { background: color-mix(in srgb, var(--amber) 22%, transparent); color: var(--amber); }
+    .status.strong { background: color-mix(in srgb, var(--signal) 22%, transparent); color: var(--signal); }
+    .status.good { background: color-mix(in srgb, var(--signal) 18%, transparent); color: var(--signal); }
+    .status.near { background: color-mix(in srgb, var(--amber) 22%, transparent); color: var(--amber); }
+    .status.error { background: color-mix(in srgb, var(--red) 22%, transparent); color: var(--red); }
+    table.offers { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+    /* Wide tables scroll inside their card instead of dragging the page sideways. */
+    .table-scroll { overflow-x: auto; margin: 0 -0.35rem; padding: 0 0.35rem; }
+    table.offers th, table.offers td { text-align: left; padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--border); }
+    table.offers th { color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    table.offers td.num, table.offers th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .price { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .price .was { color: var(--text-dim); font-weight: 400; text-decoration: line-through; margin-left: 0.4rem; font-size: 0.85em; }
+    .delta-down { color: var(--signal); }
+    .signal-label { font-size: 1.05rem; font-weight: 800; }
+    .signal-explain { color: var(--text-dim); margin: 0.4rem 0 0.8rem; max-width: 70ch; }
+    .signal-meta { display: flex; gap: 1rem; flex-wrap: wrap; color: var(--text-dim); font-size: 0.85rem; }
+    .signal-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.9rem; }
+    .loop { display: grid; gap: 0.6rem; counter-reset: step; list-style: none; padding: 0; }
+    .loop li { counter-increment: step; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 0.7rem 1rem 0.7rem 3rem; position: relative; }
+    .loop li::before { content: counter(step); position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%); width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--accent-strong); color: var(--on-accent); display: grid; place-items: center; font-weight: 800; font-size: 0.85rem; }
+    .sparkline { display: block; width: 100%; height: 120px; }
+    .sparkline .line { fill: none; stroke: var(--accent); stroke-width: 2; }
+    .sparkline .low { stroke: var(--signal); stroke-dasharray: 4 4; }
+    .sparkline .point { fill: var(--signal); }
+    .muted { color: var(--text-dim); }
+    .small { font-size: 0.85rem; }
+    .mt { margin-top: 1rem; }
+    /* Profile screen components (appearance picker, settings tiles, snackbar). */
+    .toast { position: fixed; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translate(-50%, 12px); width: min(406px, calc(100% - 24px)); background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 0.7rem 0.9rem; font-size: 0.9rem; box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: opacity 0.18s, transform 0.18s; z-index: 30; }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .account-row { display: flex; align-items: center; gap: 0.8rem; }
+    .avatar { width: 44px; height: 44px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); display: grid; place-items: center; font-weight: 700; flex: none; }
+    .palette-list { display: grid; gap: 0.55rem; margin-top: 0.5rem; }
+    .palette-chip { display: grid; grid-template-columns: auto 1fr; column-gap: 0.7rem; align-items: center; text-align: left; background: var(--bg-raise); border: 1px solid var(--border); border-radius: 12px; padding: 0.6rem 0.8rem; cursor: pointer; color: var(--text); font-family: inherit; }
+    .palette-chip.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .swatches { display: flex; gap: 4px; grid-row: span 2; }
+    .swatches i { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border); display: block; }
+    .pal-name { font-weight: 650; font-size: 0.95rem; }
+    .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-top: 0.3rem; }
+    .seg-btn { border: none; background: var(--bg-raise); color: var(--text-dim); padding: 0.45rem 1.1rem; font-weight: 600; font-family: inherit; cursor: pointer; }
+    .seg-btn + .seg-btn { border-left: 1px solid var(--border); }
+    .seg-btn.active { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+    .tile { display: flex; align-items: center; gap: 0.6rem; width: 100%; text-align: left; background: none; border: none; border-top: 1px solid var(--border); color: var(--text); padding: 0.85rem 0.2rem; cursor: pointer; font-family: inherit; font-size: 0.95rem; }
+    .tile .sub { display: block; color: var(--text-dim); font-size: 0.82rem; }
+    .tile .chev { margin-left: auto; color: var(--text-dim); flex: none; }
+    .tile.danger { color: var(--red); }
+    a.tile { text-decoration: none; }
+    /* Phase 4: notification controls, household, skeletons, view motion. */
+    .switch-row { display: flex; align-items: center; gap: 0.85rem; padding: 0.7rem 0.2rem; border-top: 1px solid var(--border); }
+    .switch-row:first-of-type { border-top: none; }
+    .switch-row .label { flex: 1; font-size: 0.95rem; }
+    .switch-row .label .sub { display: block; color: var(--text-dim); font-size: 0.82rem; }
+    .switch { position: relative; flex: none; width: 46px; height: 26px; }
+    .switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+    .switch .track { position: absolute; inset: 0; border-radius: 999px; background: var(--bg-raise); border: 1px solid var(--border); transition: background 0.18s, border-color 0.18s; pointer-events: none; }
+    .switch .thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--text-dim); transition: transform 0.18s, background 0.18s; pointer-events: none; }
+    .switch input:checked ~ .track { background: color-mix(in srgb, var(--accent) 35%, transparent); border-color: var(--accent); }
+    .switch input:checked ~ .thumb { transform: translateX(20px); background: var(--accent); }
+    .switch input:focus-visible ~ .track { outline: 3px solid var(--ring); outline-offset: 2px; }
+    .switch-row.disabled { opacity: 0.5; }
+    .time-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .time-row > div { flex: 1; min-width: 130px; }
+    .decision { display: flex; gap: 0.6rem; align-items: flex-start; background: var(--bg-raise); border: 1px solid var(--border); border-radius: 10px; padding: 0.7rem 0.85rem; margin-top: 0.9rem; }
+    .decision .why { font-size: 0.88rem; }
+    .token-box { display: flex; gap: 0.5rem; align-items: center; background: var(--bg-raise); border: 1px dashed var(--accent); border-radius: 10px; padding: 0.6rem 0.75rem; margin-top: 0.6rem; }
+    .token-box code { flex: 1; font-size: 0.92rem; word-break: break-all; user-select: all; }
+    .member-list { list-style: none; padding: 0; margin: 0.4rem 0 0; display: grid; gap: 0.5rem; }
+    .member-list li { display: flex; align-items: center; gap: 0.7rem; background: var(--bg-raise); border: 1px solid var(--border); border-radius: 10px; padding: 0.55rem 0.75rem; }
+    .member-list .who { flex: 1; }
+    .role-tag { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 999px; padding: 0.12rem 0.55rem; background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+    .role-tag.member { background: color-mix(in srgb, var(--info) 20%, transparent); color: var(--info); }
+    /* Loading skeleton for async product resolution. */
+    .sk { background: linear-gradient(100deg, var(--bg-raise) 40%, color-mix(in srgb, var(--bg-raise) 60%, var(--text-dim)) 50%, var(--bg-raise) 60%); background-size: 200% 100%; animation: sk 1.2s ease-in-out infinite; border-radius: 8px; }
+    .sk.line { height: 14px; margin-bottom: 0.6rem; }
+    .sk.title { height: 26px; width: 65%; margin-bottom: 0.9rem; }
+    .sk.block { height: 96px; }
+    @keyframes sk { to { background-position: -200% 0; } }
+    /* View entrance — subtle, and disabled under prefers-reduced-motion. */
+    .view-enter { animation: viewIn 0.22s ease-out; }
+    @keyframes viewIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    @media (max-width: 480px) {
+      h1 { font-size: 1.5rem; }
+      .app { padding: 1rem 0.85rem 2rem; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="#/home" title="Demo intro — the ShelfSignal story">
+        <span class="brand-mark" aria-hidden="true">◉</span>
+        <span class="brand-name">ShelfSignal</span>
+      </a>
+      <button id="theme-toggle" class="icon-btn" title="Toggle light / dark" aria-label="Toggle light / dark theme">◐</button>
+    </header>
+
+    <div class="demo-banner" role="status">
+      <strong>Sample build.</strong> Prices shown are fixture data, not live retailer prices.
+      Product identity for non-fixture barcodes is looked up free via Open Food Facts.
+    </div>
+
+    <main id="app" class="app" tabindex="-1">
+      <noscript>ShelfSignal needs JavaScript for this sample.</noscript>
+    </main>
+
+    <footer class="footer">
+      <p>ShelfSignal sample — built from the ShelfSignal vertical slice. Data: local fixtures + Open Food Facts (ODbL).</p>
+    </footer>
+
+    <nav class="tabbar" aria-label="Main">
+      <a class="tab" href="#/signals">
+        <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3l-2 3h16l-2-3V9a6 6 0 0 0-6-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></span>
+        <span>Signals</span>
+        <span id="signal-count" class="tab-badge" hidden></span>
+      </a>
+      <a class="tab" href="#/watchlist">
+        <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></span>
+        <span>Watchlist</span>
+      </a>
+      <a class="tab" href="#/scan">
+        <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M4 12h16"/></svg></span>
+        <span>Scan</span>
+      </a>
+      <a class="tab" href="#/profile">
+        <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></span>
+        <span>Profile</span>
+      </a>
+    </nav>
+  </div>
+
+  <script>
+  'use strict';
+
+  /* ================================================================= *
+   * Fixtures — mirror backend/src/migrations/seed_fixtures.js exactly,
+   * including the deterministic 56-day observation generation, so the
+   * sample, the backend seed and the Flutter demo mode all tell the
+   * same story. Synthetic products only — no live retailer data
+   * (Master Prompt §15).
+   * ================================================================= */
+
+  const FIXTURES = (function () {
+    const RETAILERS = [
+      { slug: 'coles', name: 'Coles', website: 'https://www.coles.com.au' },
+      { slug: 'woolworths', name: 'Woolworths', website: 'https://www.woolworths.com.au' },
+      { slug: 'dan-murphys', name: "Dan Murphy's", website: 'https://www.danmurphys.com.au' },
+      { slug: 'bws', name: 'BWS', website: 'https://www.bws.com.au' },
+      { slug: 'liquorland', name: 'Liquorland', website: 'https://www.liquorland.com.au' },
+    ];
+
+    const PRODUCTS = [
+      {
+        barcode: '9310640020223',
+        canonical_name: 'Tomato Pasta Sauce',
+        brand: 'ExampleBrand',
+        variant: 'Basil & Oregano',
+        category: 'grocery',
+        net_quantity: 500,
+        unit: 'ml',
+        pack_count: 1,
+        verification_status: 'verified',
+        offers: [
+          { retailer: 'coles', external_id: 'coles-1001', title: 'ExampleBrand Tomato Pasta Sauce Basil 500mL', usual: 6.5, low: 4.5, current: 4.5 },
+          { retailer: 'woolworths', external_id: 'woolies-2001', title: 'ExampleBrand Pasta Sauce Basil 500g', usual: 6.5, low: 5.0, current: 6.5 },
+        ],
+      },
+      {
+        barcode: '9300675046251',
+        canonical_name: 'Laundry Liquid',
+        brand: 'ExampleHome',
+        variant: 'Fresh Sensitive',
+        category: 'cleaning',
+        net_quantity: 2000,
+        unit: 'ml',
+        pack_count: 1,
+        verification_status: 'verified',
+        offers: [
+          { retailer: 'coles', external_id: 'coles-1002', title: 'ExampleHome Laundry Liquid 2L', usual: 18.0, low: 9.0, current: 12.0 },
+          { retailer: 'woolworths', external_id: 'woolies-2002', title: 'ExampleHome Sensitive Liquid 2L', usual: 18.0, low: 10.0, current: 17.0 },
+        ],
+      },
+      {
+        barcode: '9312680820030',
+        canonical_name: 'Blended Whisky',
+        brand: 'ExampleDistillery',
+        variant: 'Two Oak',
+        category: 'liquor',
+        net_quantity: 700,
+        unit: 'ml',
+        pack_count: 1,
+        alcohol_abv: 40.0,
+        verification_status: 'verified',
+        offers: [
+          { retailer: 'dan-murphys', external_id: 'dm-3001', title: 'ExampleDistillery Two Oak 700mL', usual: 62.0, low: 45.0, current: 49.9 },
+          { retailer: 'woolworths', external_id: 'woolies-2003', title: 'ExampleDistillery Two Oak 700mL', usual: 65.0, low: 48.0, current: 65.0 },
+        ],
+      },
+    ];
+
+    // Deterministic pseudo-noise, identical to the backend seed.
+    function round2(n) { return Math.round(n * 100) / 100; }
+
+    function historyFor(offer) {
+      const now = Date.now();
+      const out = [];
+      for (let i = 56; i >= 1; i -= 4) {
+        const wobble = ((i * 7919) % 13) / 100;
+        out.push({ price: round2(offer.usual * (1 + wobble - 0.06)), at: new Date(now - i * 24 * 60 * 60 * 1000) });
+      }
+      out.push({ price: offer.low, at: new Date(now - 10 * 24 * 60 * 60 * 1000) });
+      out.push({ price: offer.current, at: new Date(now - 30 * 60 * 1000) });
+      return out;
+    }
+
+    const byBarcode = {};
+    for (const p of PRODUCTS) {
+      p.history = {}; // retailer slug -> observations (append-only in the real system)
+      for (const offer of p.offers) p.history[offer.retailer] = historyFor(offer);
+      byBarcode[p.barcode] = p;
+    }
+
+    return { RETAILERS, PRODUCTS, byBarcode, round2 };
+  })();
+
+  /* ================================================================= *
+   * Barcode validation — port of backend/src/utils/barcode.js
+   * (GS1 modulo-10; EAN-8, EAN-13, UPC-A, GTIN-14)
+   * ================================================================= */
+
+  const SUPPORTED_LENGTHS = new Set([8, 12, 13, 14]);
+
+  function digitsOnly(raw) {
+    return String(raw == null ? '' : raw).replace(/[^0-9]/g, '');
+  }
+
+  function checkDigit(values) {
+    let sum = 0;
+    const reversed = values.slice().reverse();
+    for (let i = 0; i < reversed.length; i++) {
+      sum += reversed[i] * (i % 2 === 0 ? 3 : 1);
+    }
+    return (10 - (sum % 10)) % 10;
+  }
+
+  function validateBarcode(raw) {
+    const digits = digitsOnly(raw);
+    if (!digits) return { valid: false, normalized: null, type: null, reason: 'empty' };
+    if (!SUPPORTED_LENGTHS.has(digits.length)) {
+      return { valid: false, normalized: null, type: null, reason: 'unsupported_length' };
+    }
+    const body = digits.slice(0, -1).split('').map(Number);
+    const expected = checkDigit(body);
+    const actual = Number(digits.slice(-1));
+    if (expected !== actual) {
+      return { valid: false, normalized: null, type: null, reason: 'bad_check_digit' };
+    }
+    const type = { 8: 'EAN8', 12: 'UPCA', 13: 'EAN13', 14: 'GTIN14' }[digits.length] || 'UNKNOWN';
+    const normalized = digits.length === 12 ? '0' + digits : digits; // UPC-A → GTIN-13
+    return { valid: true, normalized, type };
+  }
+
+  /* ================================================================= *
+   * Signal engine — port of backend/src/domain/signalEvaluator.js.
+   * A signal must pass: confidence, freshness, availability, snooze,
+   * cooldown, then the rule threshold. Everything is explainable.
+   * ================================================================= */
+
+  const SIGNAL_LABELS = Object.freeze({
+    STRONG: 'Strong signal',
+    GOOD: 'Good price',
+    NEAR: 'Near your target',
+    CONDITIONAL: 'Conditional offer',
+    VERIFY: 'Price needs verification',
+  });
+
+  function calculateObservedBaseline(history, { windowSize = 30 } = {}) {
+    const usable = (history || [])
+      .filter((h) => h && Number.isFinite(Number(h.price)))
+      .slice(0, windowSize)
+      .map((h) => Number(h.price));
+    if (usable.length < 3) return null;
+    const sorted = usable.slice().sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+    return Math.round(median * 100) / 100;
+  }
+
+  function calculateHistoricalLow(history) {
+    const prices = (history || []).filter((h) => h && Number.isFinite(Number(h.price))).map((h) => Number(h.price));
+    if (!prices.length) return null;
+    return Math.round(Math.min(...prices) * 100) / 100;
+  }
+
+  function isFresh(observedAt, now, { maxAgeHours = 48 } = {}) {
+    if (!observedAt) return false;
+    const ageMs = new Date(now).getTime() - new Date(observedAt).getTime();
+    if (Number.isNaN(ageMs) || ageMs < 0) return false;
+    return ageMs <= maxAgeHours * 60 * 60 * 1000;
+  }
+
+  function isSnoozed(watchItem, now) {
+    return Boolean(watchItem && watchItem.snoozedUntil && new Date(watchItem.snoozedUntil) > new Date(now));
+  }
+
+  function isInCooldown(lastSignalAt, now, cooldownHours) {
+    if (!lastSignalAt || !cooldownHours) return false;
+    const hoursSince = (new Date(now).getTime() - new Date(lastSignalAt).getTime()) / 3600000;
+    return hoursSince < cooldownHours;
+  }
+
+  function evaluateRule(rule, price, baseline, historicalLow) {
+    const target = rule.target_price != null ? Number(rule.target_price) : null;
+    const minDiscount = rule.minimum_discount_percent != null ? Number(rule.minimum_discount_percent) : null;
+    const nearLowPct = rule.near_low_percent != null ? Number(rule.near_low_percent) : null;
+
+    if (rule.rule_type === 'target_price' && target != null) {
+      if (price <= target) {
+        const below = Math.round((target - price) * 100) / 100;
+        return {
+          triggered: true,
+          label: below >= target * 0.1 ? SIGNAL_LABELS.STRONG : SIGNAL_LABELS.GOOD,
+          explanation: `Price $${price.toFixed(2)} is below your target of $${target.toFixed(2)}` + (below > 0 ? ` by $${below.toFixed(2)}` : ''),
+        };
+      }
+      if (price <= target * 1.1) {
+        return { triggered: false, label: SIGNAL_LABELS.NEAR, explanation: `Price $${price.toFixed(2)} is close to your target of $${target.toFixed(2)}` };
+      }
+    }
+
+    if (rule.rule_type === 'discount_percent' && minDiscount != null && baseline) {
+      const pct = ((baseline - price) / baseline) * 100;
+      if (pct >= minDiscount) {
+        return {
+          triggered: true,
+          label: pct >= 40 ? SIGNAL_LABELS.STRONG : SIGNAL_LABELS.GOOD,
+          explanation: `${pct.toFixed(0)}% below the observed usual price of $${baseline.toFixed(2)}`,
+        };
+      }
+    }
+
+    if (rule.rule_type === 'near_historical_low' && historicalLow != null) {
+      const pct = nearLowPct != null ? nearLowPct : 5;
+      if (price <= historicalLow * (1 + pct / 100)) {
+        return {
+          triggered: true,
+          label: SIGNAL_LABELS.STRONG,
+          explanation: `Price $${price.toFixed(2)} is near the lowest observed price of $${historicalLow.toFixed(2)}`,
+        };
+      }
+    }
+
+    if (rule.rule_type === 'any_price_drop' && baseline) {
+      if (price < baseline) {
+        const pct = ((baseline - price) / baseline) * 100;
+        return {
+          triggered: true,
+          label: pct >= 25 ? SIGNAL_LABELS.STRONG : SIGNAL_LABELS.GOOD,
+          explanation: `Down ${pct.toFixed(0)}% from the observed usual price of $${baseline.toFixed(2)}`,
+        };
+      }
+    }
+
+    return { triggered: false, label: null, explanation: null };
+  }
+
+  function evaluateSignal({ watchItem, rule, offer, history, lastSignalAt, now }) {
+    if (Number(offer.matchConfidence) < 0.75) return null;      // confidence gate
+    if (!isFresh(offer.observedAt, now, { maxAgeHours: 48 })) return null; // freshness
+    if (offer.availabilityStatus === 'out_of_stock') return null; // availability
+    if (isSnoozed(watchItem, now)) return null;                  // snooze
+    if (isInCooldown(lastSignalAt, now, rule.cooldown_hours)) return null; // cooldown / dedup
+
+    const price = Number(offer.price);
+    if (!Number.isFinite(price)) return null;
+
+    const baseline = calculateObservedBaseline(history, { windowSize: 30 });
+    const historicalLow = calculateHistoricalLow(history);
+    const evaluation = evaluateRule(rule, price, baseline, historicalLow);
+    if (!evaluation.triggered) return null;
+
+    const baselinePrice = baseline || historicalLow;
+    const diffAmount = baselinePrice != null ? Math.round((baselinePrice - price) * 100) / 100 : null;
+    const diffPercent = baselinePrice != null && baselinePrice > 0
+      ? Math.round(((baselinePrice - price) / baselinePrice) * 10000) / 100
+      : null;
+
+    return {
+      ruleType: rule.rule_type,
+      label: evaluation.label,
+      explanation: evaluation.explanation,
+      currentPrice: price,
+      baselinePrice,
+      historicalLow,
+      differenceAmount: diffAmount,
+      differencePercent: diffPercent,
+      confidence: Number(offer.matchConfidence),
+      conditions: offer.promotionType ? [offer.promotionType] : [],
+      observedAt: offer.observedAt,
+    };
+  }
+
+  /* ================================================================= *
+   * Notification decision (spec §9.11) — mirrors
+   * notificationPreferencesService.shouldDeliver in the backend.
+   * Returns { deliver, reason } so suppression is always explainable.
+   * ================================================================= */
+
+  function toMinutes(hhmm) {
+    const [h, m] = String(hhmm || '0:0').split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  }
+
+  function isWithinQuietHours(at, start, end) {
+    const mins = at.getHours() * 60 + at.getMinutes();
+    const s = toMinutes(start);
+    const e = toMinutes(end);
+    if (s === e) return false;
+    return s < e ? mins >= s && mins < e : mins >= s || mins < e;
+  }
+
+  function shouldDeliver(prefs, event, now) {
+    const p = { ...DEFAULT_PREFS, ...(prefs || {}) };
+    const ev = event || {};
+    const at = now || new Date();
+    if (!p.global_enabled) return { deliver: false, reason: 'global_off' };
+    if (ev.isHouseholdActivity && !p.household_activity_enabled) return { deliver: false, reason: 'household_activity_off' };
+    if (ev.category === 'liquor' && !p.alcohol_alerts_enabled) return { deliver: false, reason: 'alcohol_off' };
+    // Category and retailer controls: a hard opt-out that beats everything below.
+    if (ev.category && (p.muted_categories || []).includes(ev.category)) return { deliver: false, reason: 'category_muted' };
+    if (ev.retailer && (p.muted_retailers || []).includes(ev.retailer)) return { deliver: false, reason: 'retailer_muted' };
+    const immediate = Boolean(ev.isHighValue) && p.immediate_high_value_enabled;
+    if (p.quiet_hours_enabled && !immediate && isWithinQuietHours(at, p.quiet_hours_start, p.quiet_hours_end)) {
+      return { deliver: false, reason: 'quiet_hours' };
+    }
+    if (p.digest_mode && !immediate) return { deliver: false, reason: 'digest_queued' };
+    return { deliver: true, reason: immediate && p.quiet_hours_enabled ? 'high_value_override' : 'ok' };
+  }
+
+  const DECISION_TEXT = {
+    global_off: 'Push notifications are off globally — signals still appear in the app.',
+    quiet_hours: 'Inside quiet hours — held until the window ends.',
+    digest_queued: 'Digest mode — queued for the next digest instead of an instant push.',
+    household_activity_off: 'Household activity notifications are off.',
+    alcohol_off: 'Alcohol alerts are disabled for this account.',
+    category_muted: 'This category is muted — no push regardless of strength.',
+    retailer_muted: 'This retailer is muted — no push regardless of strength.',
+    high_value_override: 'Delivered immediately, overriding quiet hours and the digest.',
+    ok: 'Would be delivered now.',
+  };
+
+  /* ================================================================= *
+   * State (localStorage)
+   * ================================================================= */
+
+  const STORE_KEY = 'shelfsignal.web.v1';
+  let lastCheckNote = '';
+
+  /* Notification preferences (spec §9.11) — same defaults and semantics as
+     backend/src/services/notificationPreferencesService.js. */
+  const DEFAULT_PREFS = Object.freeze({
+    global_enabled: true,
+    quiet_hours_enabled: false,
+    quiet_hours_start: '22:00',
+    quiet_hours_end: '07:00',
+    digest_mode: false,
+    per_product_cooldown_hours: 24,
+    household_activity_enabled: true,
+    immediate_high_value_enabled: true,
+    alcohol_alerts_enabled: true,
+    muted_categories: [],
+    muted_retailers: [],
+  });
+
+  const state = loadState();
+
+  function loadState() {
+    let loaded = null;
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) loaded = JSON.parse(raw);
+    } catch (e) { /* corrupted state falls through to defaults */ }
+    const base = { watchItems: [], signals: [], theme: 'dark', palette: 'calm', prefs: { ...DEFAULT_PREFS }, household: null };
+    if (!loaded || typeof loaded !== 'object') return base;
+    // Merge so older stored states gain the Phase 4 fields.
+    return {
+      ...base,
+      ...loaded,
+      prefs: { ...DEFAULT_PREFS, ...(loaded.prefs || {}) },
+      household: loaded.household || null,
+    };
+  }
+
+  function saveState() {
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  }
+
+  function getWatchItem(barcode) {
+    return state.watchItems.find((w) => w.barcode === barcode && w.status !== 'removed');
+  }
+
+  function lastSignalFor(barcode, retailerSlug) {
+    const hits = state.signals.filter((s) => s.barcode === barcode && s.retailer === retailerSlug);
+    return hits.length ? hits[hits.length - 1].createdAt : null;
+  }
+
+  function activeSignals() {
+    return state.signals.filter((s) => s.status === 'active');
+  }
+
+  /* ================================================================= *
+   * Helpers
+   * ================================================================= */
+
+  const $ = (sel, root) => (root || document).querySelector(sel);
+  const app = () => $('#app');
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function aud(n) { return '$' + Number(n).toFixed(2); }
+
+  function timeAgo(iso) {
+    const then = new Date(iso).getTime();
+    const mins = Math.max(0, Math.round((Date.now() - then) / 60000));
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return `${hours} h ago`;
+    const days = Math.round(hours / 24);
+    return `${days} d ago`;
+  }
+
+  function retailerName(slug) {
+    const r = FIXTURES.RETAILERS.find((x) => x.slug === slug);
+    return r ? r.name : slug;
+  }
+
+  function labelFor(slug) {
+    const c = CATEGORIES.find((x) => x.slug === slug);
+    return c ? c.label : slug;
+  }
+
+  function productTitle(p) {
+    return [p.brand, p.canonical_name, p.variant].filter(Boolean).join(' — ');
+  }
+
+  function productSize(p) {
+    if (p.net_quantity == null) return '';
+    return `${p.net_quantity} ${p.unit || ''}${p.pack_count > 1 ? ` × ${p.pack_count}` : ''}`.trim();
+  }
+
+  function labelClass(label) {
+    if (!label) return '';
+    if (label === SIGNAL_LABELS.STRONG) return 'strong';
+    if (label === SIGNAL_LABELS.GOOD) return 'good';
+    return 'near';
+  }
+
+  function ruleSummary(rule) {
+    if (!rule) return '—';
+    switch (rule.rule_type) {
+      case 'target_price': return `Alert at or below ${aud(rule.target_price)}`;
+      case 'discount_percent': return `Alert when ≥ ${rule.minimum_discount_percent}% below observed usual`;
+      case 'near_historical_low': return `Alert within ${rule.near_low_percent != null ? rule.near_low_percent : 5}% of the lowest observed price`;
+      case 'any_price_drop': return 'Alert on any drop below the observed usual price';
+      default: return rule.rule_type;
+    }
+  }
+
+  function bestOfferLine(p) {
+    const best = p.offers.slice().sort((a, b) => a.current - b.current)[0];
+    return best ? `${retailerName(best.retailer)} ${aud(best.current)} (usual ${aud(best.usual)})` : 'none';
+  }
+
+  /* ================================================================= *
+   * Open Food Facts identity lookup (free, no key, CORS-friendly)
+   * ================================================================= */
+
+  async function lookupOpenFoodFacts(barcode) {
+    const res = await fetch(`https://world.openfoodfacts.org/api/v3/product/${barcode}.json`);
+    if (!res.ok) throw new Error(`Open Food Facts returned ${res.status}`);
+    const json = await res.json();
+    // v3 responds {status:'success', product}; older payloads use numeric 1.
+    if (!json.product || !(json.status === 1 || json.status === 'success')) return null;
+    const p = json.product;
+    const quantity = typeof p.quantity === 'string' ? p.quantity.trim() : '';
+    const abvMatch = quantity.match(/(\d+(?:\.\d+)?)\s*%?\s*(?:abv|alc\/vol)/i);
+    return {
+      source: 'open-food-facts',
+      canonical_name: p.product_name || 'Unknown product',
+      brand: p.brands ? String(p.brands).split(',')[0].trim() : '',
+      variant: p.varieties || '',
+      category: (p.categories_tags && p.categories_tags[0]) ? String(p.categories_tags[0]).replace(/[a-z]+:/, '') : 'grocery',
+      net_quantity: quantity ? parseFloat(quantity) : null,
+      unit: quantity ? (quantity.match(/ml|l|g|kg/i) || [''])[0] : '',
+      pack_count: 1,
+      alcohol_abv: abvMatch ? Number(abvMatch[1]) : null,
+      verification_status: 'unverified',
+      image_url: p.image_url || null,
+    };
+  }
+
+  /* Live reachability probe for the Data sources panel: a real fetch from this
+     page, timing the round-trip to the free Open Food Facts API. Honest either
+     way — unreachable is shown as an error, never hidden. */
+  async function probeOpenFoodFacts() {
+    const el = document.getElementById('off-status');
+    if (!el) return;
+    const t0 = performance.now();
+    try {
+      const res = await fetch('https://world.openfoodfacts.org/api/v3/product/5449000000996.json', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await res.json();
+      el.textContent = `reachable · ${Math.round(performance.now() - t0)} ms`;
+      el.className = 'status ok';
+    } catch (_err) {
+      el.textContent = 'unreachable';
+      el.className = 'status err';
+    }
+  }
+
+  /* ================================================================= *
+   * Profile tab — mirrors the Flutter ProfileScreen, plus the demo's
+   * Appearance picker (palette + light/dark) and About shortcuts.
+   * ================================================================= */
+
+  const PALETTES = [
+    { id: 'calm', name: 'Premium Calm', desc: 'Charcoal + signal green (the spec default, matches the app)', dots: ['#121417', '#2FBF9B', '#E8A33D'] },
+    { id: 'indigo', name: 'Midnight Indigo', desc: 'Blue-black surfaces + violet accent', dots: ['#101320', '#8B7CF6', '#2FBF9B'] },
+    { id: 'ocean', name: 'Deep Ocean', desc: 'Slate teal surfaces + sky-blue accent', dots: ['#0D1418', '#38BDF8', '#2FBF9B'] },
+  ];
+
+  function toast(msg) {
+    let el = document.getElementById('toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'toast';
+      el.className = 'toast';
+      el.setAttribute('role', 'status');
+      document.querySelector('.shell').appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.classList.remove('show'), 2600);
+  }
+
+  function renderProfile() {
+    const current = PALETTES.some((p) => p.id === state.palette) ? state.palette : 'calm';
+    const light = state.theme === 'light';
+    app().innerHTML = `
+      <h1>Profile</h1>
+
+      <div class="card mt account-row">
+        <span class="avatar" aria-hidden="true">?</span>
+        <span>
+          <strong>Not signed in</strong>
+          <span class="sub muted small" style="display:block">Demo mode — data stays on this device</span>
+        </span>
+      </div>
+
+      <div class="card mt">
+        <h3>Appearance</h3>
+        <p class="muted small">Colour palette — same token system as the Flutter app (Master Prompt §10).
+        Signal green always means a verified positive, amber a conditional state, red an error.</p>
+        <div class="palette-list" role="radiogroup" aria-label="Colour palette">
+          ${PALETTES.map((p) => `
+            <button class="palette-chip ${p.id === current ? 'active' : ''}" data-palette-id="${p.id}"
+                    role="radio" aria-checked="${p.id === current}">
+              <span class="swatches" aria-hidden="true">${p.dots.map((d) => `<i style="background:${d}"></i>`).join('')}</span>
+              <span class="pal-name">${p.name}</span>
+              <span class="muted small">${p.desc}</span>
+            </button>`).join('')}
+        </div>
+        <p class="muted small mt">Theme</p>
+        <div class="seg" role="group" aria-label="Light or dark theme">
+          <button class="seg-btn ${light ? 'active' : ''}" data-theme-set="light">Light</button>
+          <button class="seg-btn ${light ? '' : 'active'}" data-theme-set="dark">Dark</button>
+        </div>
+      </div>
+
+      <div class="card mt">
+        <h3>Settings</h3>
+        <a class="tile" href="#/notifications">
+          <span>Notification preferences<span class="sub">Quiet hours, digests, cooldowns</span></span><span class="chev">›</span>
+        </a>
+        <a class="tile" href="#/household">
+          <span>Household<span class="sub">Shared list, members and invites</span></span><span class="chev">›</span>
+        </a>
+        <button class="tile" data-toast="Age confirmation flow arrives with the store builds.">
+          <span>Alcohol categories<span class="sub">Adult confirmation required</span></span><span class="chev">›</span>
+        </button>
+        <button class="tile" data-toast="Demo mode is always on in this sample — fixtures only.">
+          <span>Demo mode<span class="sub">Use fixtures instead of the API</span></span><span class="chev">›</span>
+        </button>
+        <button class="tile danger" data-toast="Demo mode — nothing is stored server-side, so there is nothing to delete.">
+          <span>Delete account<span class="sub">Removes your data. Demo mode clears locally.</span></span><span class="chev">›</span>
+        </button>
+      </div>
+
+      <div class="card mt">
+        <h3>About</h3>
+        <a class="tile" href="#/home">
+          <span>Demo intro &amp; data sources<span class="sub">The Shelf-to-Signal loop, honest data posture, live source status</span></span><span class="chev">›</span>
+        </a>
+        <div class="tile" style="cursor:default">
+          <span class="muted small">ShelfSignal sample — built from the ShelfSignal vertical slice.</span>
+        </div>
+      </div>`;
+
+    document.querySelectorAll('.palette-chip').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.palette = btn.dataset.paletteId;
+        saveState();
+        applyPalette();
+        renderProfile();
+        toast(`Palette: ${PALETTES.find((p) => p.id === state.palette).name}`);
+      });
+    });
+    document.querySelectorAll('.seg-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.theme = btn.dataset.themeSet;
+        saveState();
+        applyTheme();
+        renderProfile();
+      });
+    });
+    document.querySelectorAll('.tile[data-toast]').forEach((tile) => {
+      tile.addEventListener('click', () => toast(tile.dataset.toast));
+    });
+  }
+
+  /* ================================================================= *
+   * Notification controls (spec §9.11) — mirrors GET/PATCH
+   * /api/notifications/preferences and the /preview dry-run.
+   * ================================================================= */
+
+  const PREF_ROWS = [
+    ['global_enabled', 'Push notifications', 'Master switch for every push'],
+    ['quiet_hours_enabled', 'Quiet hours', 'Hold non-urgent pushes overnight'],
+    ['digest_mode', 'Digest mode', 'Batch non-urgent pushes into one digest'],
+    ['immediate_high_value_enabled', 'High-value override', 'Strong signals bypass quiet hours and digest'],
+    ['household_activity_enabled', 'Household activity', 'Someone in the household bought or snoozed an item'],
+    ['alcohol_alerts_enabled', 'Alcohol alerts', 'Offers from liquor categories'],
+  ];
+
+  /** Coarse category taxonomy (fixtures + Open Food Facts mapping). */
+  const CATEGORIES = [
+    { slug: 'grocery', label: 'Grocery' },
+    { slug: 'cleaning', label: 'Cleaning' },
+    { slug: 'liquor', label: 'Liquor' },
+  ];
+
+  /** Dry-run test signal (transient — not persisted). */
+  const dryRun = { category: 'grocery', retailer: 'coles' };
+
+  function switchRow(field, label, sub, disabled) {
+    const on = Boolean(state.prefs[field]);
+    return `
+      <div class="switch-row ${disabled ? 'disabled' : ''}">
+        <span class="label">${esc(label)}<span class="sub">${esc(sub)}</span></span>
+        <span class="switch">
+          <input type="checkbox" data-pref="${field}" ${on ? 'checked' : ''} ${disabled ? 'disabled' : ''}
+                 aria-label="${esc(label)}" />
+          <span class="track"></span><span class="thumb"></span>
+        </span>
+      </div>`;
+  }
+
+  function renderNotifications() {
+    const p = state.prefs;
+    const probe = shouldDeliver(p, {});
+    const probeHigh = shouldDeliver(p, { isHighValue: true });
+    const probeChannel = shouldDeliver(p, { category: dryRun.category, retailer: dryRun.retailer });
+    const off = !p.global_enabled;
+    app().innerHTML = `
+      <h1>Notification preferences</h1>
+      <p class="lede">The same controls the backend exposes at
+      <code>GET /api/notifications/preferences</code> (spec §9.11). Every setting here drives the
+      sample's delivery decisions — nothing is decorative.</p>
+
+      <div class="card mt">
+        <h3>Push notifications</h3>
+        ${PREF_ROWS.map(([f, l, s]) => switchRow(f, l, s, off && f !== 'global_enabled')).join('')}
+      </div>
+
+      <div class="card mt">
+        <h3>Quiet hours</h3>
+        <p class="muted small">Non-urgent pushes wait until the window ends. Windows may wrap midnight.</p>
+        <div class="time-row">
+          <div>
+            <label for="qh-start">From</label>
+            <input id="qh-start" type="time" value="${esc(p.quiet_hours_start)}" ${p.quiet_hours_enabled ? '' : 'disabled'} />
+          </div>
+          <div>
+            <label for="qh-end">Until</label>
+            <input id="qh-end" type="time" value="${esc(p.quiet_hours_end)}" ${p.quiet_hours_enabled ? '' : 'disabled'} />
+          </div>
+        </div>
+      </div>
+
+      <div class="card mt">
+        <h3>Per-product cooldown</h3>
+        <label for="cooldown-input">Hours between pushes for the same product</label>
+        <input id="cooldown-input" inputmode="numeric" value="${esc(p.per_product_cooldown_hours)}" ${off ? 'disabled' : ''} />
+        <p class="muted small">0–168. This is the duplicate-suppression window (spec §14) applied
+        on top of signal cooldowns.</p>
+      </div>
+
+      <div class="card mt">
+        <h3>Category &amp; retailer controls</h3>
+        <p class="muted small">Mute a whole channel (spec §9.11). A muted channel is a hard
+        opt-out: it beats quiet hours, the digest <em>and</em> the high-value override — same as
+        <code>PATCH /api/notifications/preferences</code>.</p>
+        <p class="muted small" style="margin-bottom:.25rem">Categories</p>
+        ${CATEGORIES.map(({ slug, label }) => {
+          const muted = (p.muted_categories || []).includes(slug);
+          return `<button type="button" class="chip ${muted ? 'muted' : ''}" data-mute-cat="${slug}"
+            aria-pressed="${muted}">${esc(label)}</button>`;
+        }).join('')}
+        <p class="muted small" style="margin-top:.75rem;margin-bottom:.25rem">Retailers</p>
+        ${(FIXTURES.RETAILERS || []).map((r) => {
+          const muted = (p.muted_retailers || []).includes(r.slug);
+          return `<button type="button" class="chip ${muted ? 'muted' : ''}" data-mute-retailer="${r.slug}"
+            aria-pressed="${muted}">${esc(r.name)}</button>`;
+        }).join('')}
+        ${off ? '<p class="muted small mt">Push is off globally anyway — these apply once you turn it back on.</p>' : ''}
+      </div>
+
+      <div class="card mt">
+        <h3>Delivery dry-run</h3>
+        <p class="muted small">A live preview of what the backend would do with these preferences
+        right now — same decision function, same reasons.</p>
+        <div class="decision">
+          <span class="status ${probe.deliver ? 'ok' : 'pending'}">${probe.deliver ? 'Deliver' : 'Hold'}</span>
+          <span class="why">Routine signal — ${esc(DECISION_TEXT[probe.reason] || probe.reason)}</span>
+        </div>
+        <div class="decision">
+          <span class="status ${probeHigh.deliver ? 'ok' : 'pending'}">${probeHigh.deliver ? 'Deliver' : 'Hold'}</span>
+          <span class="why">High-value signal — ${esc(DECISION_TEXT[probeHigh.reason] || probeHigh.reason)}</span>
+        </div>
+        <div class="grid two mt">
+          <div>
+            <label for="dry-cat">Test category</label>
+            <select id="dry-cat">
+              ${CATEGORIES.map(({ slug, label }) => `<option value="${slug}" ${dryRun.category === slug ? 'selected' : ''}>${esc(label)}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label for="dry-ret">Test retailer</label>
+            <select id="dry-ret">
+              ${(FIXTURES.RETAILERS || []).map((r) => `<option value="${esc(r.slug)}" ${dryRun.retailer === r.slug ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="decision mt">
+          <span class="status ${probeChannel.deliver ? 'ok' : 'pending'}">${probeChannel.deliver ? 'Deliver' : 'Hold'}</span>
+          <span class="why">${esc(labelFor(dryRun.category))} at ${esc(retailerName(dryRun.retailer))} — ${esc(DECISION_TEXT[probeChannel.reason] || probeChannel.reason)}</span>
+        </div>
+      </div>
+
+      <p class="mt"><a class="btn secondary" href="#/profile">← Back to profile</a></p>`;
+
+    document.querySelectorAll('[data-pref]').forEach((input) => {
+      input.addEventListener('change', () => {
+        state.prefs[input.dataset.pref] = input.checked;
+        saveState();
+        renderNotifications();
+        toast(`${input.checked ? 'On' : 'Off'}: ${input.getAttribute('aria-label')}`);
+      });
+    });
+    $('#qh-start').addEventListener('change', (e) => {
+      state.prefs.quiet_hours_start = e.target.value || '22:00';
+      saveState();
+      renderNotifications();
+    });
+    $('#qh-end').addEventListener('change', (e) => {
+      state.prefs.quiet_hours_end = e.target.value || '07:00';
+      saveState();
+      renderNotifications();
+    });
+    $('#cooldown-input').addEventListener('change', (e) => {
+      const n = Math.max(0, Math.min(168, Math.round(Number(e.target.value) || 0)));
+      state.prefs.per_product_cooldown_hours = n;
+      saveState();
+      renderNotifications();
+      if (String(n) !== String(e.target.value)) toast(`Cooldown clamped to ${n} hours`);
+    });
+    const toggleMute = (field, slug, label) => {
+      const list = Array.isArray(state.prefs[field]) ? state.prefs[field].slice() : [];
+      const at = list.indexOf(slug);
+      if (at >= 0) list.splice(at, 1); else list.push(slug);
+      state.prefs[field] = list;
+      saveState();
+      renderNotifications();
+      toast(`${label} ${at >= 0 ? 'unmuted' : 'muted'} — ${list.length ? list.join(', ') : 'nothing muted'}`);
+    };
+    document.querySelectorAll('[data-mute-cat]').forEach((btn) => {
+      btn.addEventListener('click', () => toggleMute('muted_categories', btn.dataset.muteCat, labelFor(btn.dataset.muteCat)));
+    });
+    document.querySelectorAll('[data-mute-retailer]').forEach((btn) => {
+      btn.addEventListener('click', () => toggleMute('muted_retailers', btn.dataset.muteRetailer, retailerName(btn.dataset.muteRetailer)));
+    });
+    $('#dry-cat').addEventListener('change', (e) => { dryRun.category = e.target.value; renderNotifications(); });
+    $('#dry-ret').addEventListener('change', (e) => { dryRun.retailer = e.target.value; renderNotifications(); });
+  }
+
+  /* ================================================================= *
+   * Household (spec §9.9) — demo state in localStorage. Mirrors the
+   * backend's create / invite / accept / member flow, including the
+   * one-time raw invite token.
+   * ================================================================= */
+
+  function newInviteToken() {
+    const bytes = new Uint8Array(18);
+    (crypto.getRandomValues ? crypto : window.crypto).getRandomValues(bytes);
+    return Array.from(bytes, (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 32);
+  }
+
+  function renderHousehold() {
+    const hh = state.household;
+
+    if (!hh) {
+      app().innerHTML = `
+        <h1>Household</h1>
+        <p class="lede">One household, one shared list — private items stay private unless you
+        explicitly share them (spec §9.9).</p>
+
+        <div class="card mt">
+          <h3>Create a household</h3>
+          <label for="hh-name">Household name</label>
+          <input id="hh-name" maxlength="128" placeholder="e.g. The Nguyen household" />
+          <p class="mt"><button id="hh-create" class="btn">Create household</button></p>
+        </div>
+
+        <div class="card mt">
+          <h3>Join with an invite</h3>
+          <label for="hh-token">Invite token</label>
+          <input id="hh-token" placeholder="Paste the 32-character token" autocomplete="off" />
+          <p class="mt"><button id="hh-join" class="btn secondary">Join household</button></p>
+          <p class="muted small">Tokens are single-use and expire after 7 days in the backend —
+          this demo keeps the same rules.</p>
+        </div>
+
+        <p class="mt"><a class="btn ghost" href="#/profile">← Back to profile</a></p>`;
+
+      $('#hh-create').addEventListener('click', () => {
+        const name = $('#hh-name').value.trim();
+        if (!name) { toast('Give the household a name first.'); $('#hh-name').focus(); return; }
+        state.household = {
+          name,
+          owner: 'You',
+          createdAt: new Date().toISOString(),
+          members: [{ id: 'self', name: 'You', role: 'owner' }],
+          invites: [],
+        };
+        saveState();
+        renderHousehold();
+        toast(`Household “${name}” created — you are the owner.`);
+      });
+      $('#hh-join').addEventListener('click', () => {
+        const token = $('#hh-token').value.trim();
+        if (token.length !== 32) { toast('Invite tokens are 32 characters.'); return; }
+        // Demo: joining an unknown token creates a household you belong to,
+        // exactly as acceptInvite enrols a non-member.
+        state.household = {
+          name: 'Joined household',
+          owner: 'Someone else',
+          createdAt: new Date().toISOString(),
+          members: [{ id: 'other', name: 'Someone else', role: 'owner' }, { id: 'self', name: 'You', role: 'member' }],
+          invites: [],
+        };
+        saveState();
+        renderHousehold();
+        toast('Joined the household.');
+      });
+      return;
+    }
+
+    const you = hh.members.find((m) => m.id === 'self');
+    const isOwner = you && you.role === 'owner';
+    app().innerHTML = `
+      <h1>${esc(hh.name)}</h1>
+      <p class="lede">${hh.members.length} member${hh.members.length === 1 ? '' : 's'} ·
+      your role: <strong>${esc(you ? you.role : 'member')}</strong></p>
+
+      <div class="card mt">
+        <h3>Members</h3>
+        ${!isOwner ? '<p class="muted small">Ownership sits with the owner — only they can invite, remove or transfer (same as the API).</p>' : ''}
+        <ul class="member-list">
+          ${hh.members.map((m) => `
+            <li>
+              <span class="avatar" aria-hidden="true">${esc(m.name.slice(0, 1))}</span>
+              <span class="who">${esc(m.name)}${m.id === 'self' ? ' <span class="muted small">(you)</span>' : ''}</span>
+              <span class="role-tag ${m.role}">${esc(m.role)}</span>
+              ${m.id !== 'self' && isOwner ? `
+                <button class="btn ghost small" data-transfer="${esc(m.id)}">Make owner</button>
+                <button class="btn ghost small" data-remove="${esc(m.id)}">Remove</button>` : ''}
+            </li>`).join('')}
+        </ul>
+      </div>
+
+      ${isOwner ? `
+      <div class="card mt">
+        <h3>Invite someone</h3>
+        <p class="muted small">The raw token is shown once, like the backend's single-use invite.</p>
+        <p><button id="hh-invite" class="btn">Create invite</button></p>
+        <div id="invite-slot"></div>
+        ${hh.invites.length ? `
+          <h3 class="mt">Pending invites</h3>
+          <ul class="member-list">
+            ${hh.invites.map((i) => `
+              <li>
+                <span class="who"><code class="small">${esc(i.token.slice(0, 8))}…</code>
+                <span class="muted small" style="display:block">expires ${timeAgo(i.expiresAt)} from now</span></span>
+                <button class="btn ghost small" data-revoke="${esc(i.id)}">Revoke</button>
+              </li>`).join('')}
+          </ul>` : ''}
+      </div>` : `
+      <div class="card mt">
+        <h3>Invites</h3>
+        <p class="muted small">Only the owner can create invites.</p>
+      </div>`}
+
+      <div class="card mt">
+        <h3>Shared watchlist</h3>
+        <p class="muted small">Items marked <strong>shared</strong> are visible to the whole
+        household. Private items never are — the backend filters on
+        <code>visibility = 'shared'</code> and excludes your own rows from your feed.</p>
+        <h4 class="mt small-caps">Shared by you</h4>
+        ${sharedByYou().length
+          ? `<ul class="member-list">${sharedByYou().map(sharedItemLine).join('')}</ul>
+             <p class="muted small">Other members see these; they stay out of your own feed.</p>`
+          : '<p class="muted small">Nothing shared yet — open a watchlist card and switch on “Share with household”.</p>'}
+        <h4 class="mt small-caps">Shared with you</h4>
+        ${sharedWithHousehold().length
+          ? `<ul class="member-list">${sharedWithHousehold().map(sharedItemLine).join('')}</ul>`
+          : '<p class="muted small">Nothing from your members yet.</p>'}
+      </div>
+
+      <p class="mt">
+        <a class="btn secondary" href="#/watchlist">Open watchlist</a>
+        <button id="hh-leave" class="btn danger" style="margin-left:0.5rem">${isOwner ? 'Delete household' : 'Leave household'}</button>
+        <a class="btn ghost" href="#/profile" style="margin-left:0.5rem">Back</a>
+      </p>`;
+
+    const inviteBtn = $('#hh-invite');
+    if (inviteBtn) {
+      inviteBtn.addEventListener('click', () => {
+        const token = newInviteToken();
+        hh.invites.push({ id: `inv-${Date.now()}`, token, expiresAt: new Date(Date.now() + 168 * 3600 * 1000).toISOString() });
+        saveState();
+        renderHousehold();
+        $('#invite-slot').innerHTML = `
+          <div class="token-box"><code>${esc(token)}</code>
+          <button class="btn small" id="copy-token">Copy</button></div>
+          <p class="muted small">Shown once — copy it now. Single-use, expires in 7 days.</p>
+          <p class="mt"><button id="hh-simulate" class="btn ghost small">Simulate someone joining (demo)</button></p>`;
+          $('#hh-simulate').addEventListener('click', () => {
+            const n = hh.members.filter((m) => m.id !== 'self').length + 1;
+            hh.members.push({ id: `member-${n}`, name: `Jordan (demo)`, role: 'member' });
+            hh.invites = hh.invites.filter((i) => i.token !== token); // single-use
+            saveState();
+            renderHousehold();
+            toast('Invite accepted — a second member joined.');
+          });
+        $('#copy-token').addEventListener('click', () => {
+          (navigator.clipboard ? navigator.clipboard.writeText(token) : Promise.reject())
+            .then(() => toast('Invite token copied.'))
+            .catch(() => toast('Select the token and copy it manually.'));
+        });
+      });
+    }
+    document.querySelectorAll('[data-revoke]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        hh.invites = hh.invites.filter((i) => i.id !== btn.dataset.revoke);
+        saveState();
+        renderHousehold();
+        toast('Invite revoked.');
+      });
+    });
+    document.querySelectorAll('[data-remove]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        hh.members = hh.members.filter((m) => m.id !== btn.dataset.remove);
+        saveState();
+        renderHousehold();
+        toast('Member removed.');
+      });
+    });
+    document.querySelectorAll('[data-transfer]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = hh.members.find((m) => m.id === btn.dataset.transfer);
+        if (!target) return;
+        // Both role flips are applied together, like the backend transaction.
+        hh.members = hh.members.map((m) => ({ ...m, role: m.id === target.id ? 'owner' : (m.id === 'self' ? 'member' : m.role) }));
+        saveState();
+        renderHousehold();
+        toast(`Ownership transferred to ${target.name} — you are now a member.`);
+      });
+    });
+    $('#hh-leave').addEventListener('click', () => {
+      state.household = null;
+      saveState();
+      renderHousehold();
+      toast(isOwner ? 'Household deleted (demo — nothing was stored).' : 'You left the household.');
+    });
+  }
+
+  /** Watch items the caller shared — what other household members would see. */
+  function sharedByYou() {
+    return state.watchItems.filter((w) => w.status !== 'removed' && w.visibility === 'shared' && w.sharedBy === 'self');
+  }
+
+  /** Household-shared watch items from other members (own items excluded, like the API). */
+  function sharedWithHousehold() {
+    if (!state.household) return [];
+    return state.watchItems.filter((w) => w.status !== 'removed' && w.visibility === 'shared' && w.sharedBy && w.sharedBy !== 'self');
+  }
+
+  function sharedItemLine(w) {
+    const p = FIXTURES.byBarcode[w.barcode];
+    return `<li><span class="who">${p ? esc(productTitle(p)) : esc(w.barcode)}
+      <span class="muted small" style="display:block">${esc(ruleSummary(w.rule))}</span></span></li>`;
+  }
+
+  /* ================================================================= *
+   * Router
+   * ================================================================= */
+
+  const routes = {
+    '': renderSignals, 'home': renderHome, 'scan': renderScan, 'watchlist': renderWatchlist,
+    'signals': renderSignals, 'profile': renderProfile,
+    'notifications': renderNotifications, 'household': renderHousehold,
+    'history': renderHistory,
+  };
+
+  // Pushed sub-screens live outside the tab shell (like product/history).
+  const PUSHED_VIEWS = new Set(['product', 'history', 'notifications', 'household']);
+
+  function router() {
+    const hash = location.hash.replace(/^#\/?/, '');
+    const [head, arg] = hash.split('/');
+    const view = head || 'signals'; // matches the Flutter app's initialLocation
+    document.querySelectorAll('.tabbar .tab').forEach((a) => {
+      const target = a.getAttribute('href').replace(/^#\/?/, '');
+      a.classList.toggle('active', target === view
+        || (view === 'product' && target === 'scan')
+        || ((view === 'notifications' || view === 'household') && target === 'profile'));
+    });
+    // Product detail is pushed outside the shell in GoRouter — no bottom bar there.
+    const tabbar = document.querySelector('.tabbar');
+    if (tabbar) tabbar.hidden = PUSHED_VIEWS.has(view);
+    const count = activeSignals().length;
+    const badge = $('#signal-count');
+    badge.hidden = count === 0;
+    badge.textContent = count;
+    (routes[head] || (arg ? renderProduct : renderSignals))(arg);
+    // View-enter transition; focus moves to the new screen for keyboard/SR users
+    // (skipped on the very first paint so the page doesn't steal initial focus).
+    const root = app();
+    root.classList.remove('view-enter');
+    void root.offsetWidth; // restart the animation
+    root.classList.add('view-enter');
+    if (hasNavigated) root.focus({ preventScroll: true });
+    hasNavigated = true;
+  }
+
+  let hasNavigated = false;
+
+  window.addEventListener('hashchange', router);
+
+  /* ================================================================= *
+   * Views
+   * ================================================================= */
+
+  function renderHome() {
+    app().innerHTML = `
+      <h1>Scan what you buy.<br/>Get the signal when the price is right.</h1>
+      <p class="lede">ShelfSignal watches the exact products your household already buys —
+      groceries, cleaning, toiletries, beer, wine and spirits — and tells you when one is
+      genuinely worth purchasing again. This is an interactive web sample for consulting:
+      every button works, and prices are clearly-labelled fixture data.</p>
+
+      <h2 class="mt">The Shelf-to-Signal loop</h2>
+      <ol class="loop">
+        <li><strong>Scan the shelf</strong> — enter or scan a barcode (GS1-validated).</li>
+        <li><strong>Confirm the match</strong> — canonical product identity and verification status.</li>
+        <li><strong>Set the signal</strong> — target price, discount %, near-low or any drop.</li>
+        <li><strong>ShelfSignal watches</strong> — append-only price observations per retailer.</li>
+        <li><strong>Receive a meaningful alert</strong> — explainable: what, where, why, how confident.</li>
+        <li><strong>Act or snooze</strong> — mark bought, dismiss, snooze, adjust the rule.</li>
+      </ol>
+
+      <div class="card mt">
+        <h3>Try it right now</h3>
+        <p class="muted">Three fixture products are loaded (verified, GS1-validated barcodes).
+        Any other barcode is looked up live in the free Open Food Facts database for identity —
+        with no prices monitored yet, exactly how an unverified product behaves in the real app.</p>
+        <p>
+          <a class="btn" href="#/scan">Start with a barcode</a>
+          <a class="btn secondary" href="#/signals">See sample signals</a>
+        </p>
+      </div>
+
+      <div class="grid two mt">
+        <div class="card">
+          <h3>Exact product identity</h3>
+          <p class="muted">Barcode-first. Variant, flavour, pack size and format matter — a 500 mL
+          sauce and a 1 L sauce are different products, never silently equated.</p>
+        </div>
+        <div class="card">
+          <h3>A signal, not just a drop</h3>
+          <p class="muted">Every alert explains its trigger, shows the observed usual price, the
+          historical low, freshness and confidence — no retailer "was" price taken on faith.</p>
+        </div>
+        <div class="card">
+          <h3>Honest data posture</h3>
+          <p class="muted">No live retailer prices are claimed anywhere in this sample. Research on
+          lawful data pathways for Coles, Woolworths, ALDI, Dan Murphy's, BWS, Liquorland and
+          Bottle Mart is documented in <code>Docs/retailer-api-research.md</code>.<br><br>
+          <strong>Phase 0 is live here:</strong> unknown barcodes get free Open Food Facts
+          identity (unverified). <strong>Phase 3 is in the backend:</strong> Open Prices
+          crowdsourced observations are ingested server-side with provenance — only AUD
+          prices from mapped Australian stores, which are still rare, so no live prices
+          appear.</p>
+        </div>
+        <div class="card">
+          <h3>Household-ready</h3>
+          <p class="muted">The shared watchlist (one household, one list, private items stay
+          private) is specced and queued — the natural next demo step for a consulting walkthrough.</p>
+        </div>
+      </div>
+
+      <div class="card mt">
+        <h3>Data sources</h3>
+        <p class="muted">Every source this sample touches, honestly labelled. No scraping, no
+        grey-area scraper APIs (spec §15) — the evidence behind each choice is in
+        <code>Docs/retailer-api-research.md</code>.</p>
+        <ul class="ds-list">
+          <li>
+            <span class="ds-name">Open Food Facts</span>
+            <span class="tag">identity</span><span class="tag">browser + server</span>
+            <span id="off-status" class="status pending">checking…</span>
+            <span class="ds-note">Free, no API key, CORS-enabled — product identity only, never
+            prices. This page probes it <strong>live</strong> right now: unknown barcodes resolve
+            to an unverified product, exactly like the real app's unknown-barcode flow.</span>
+          </li>
+          <li>
+            <span class="ds-name">Open Prices</span>
+            <span class="tag">prices</span><span class="tag">server-side only</span>
+            <span class="status pending">backend ingest</span>
+            <span class="ds-note">Free, no key, but no CORS — unreachable from a browser, so the
+            backend ingests it with per-observation provenance, AUD prices at mapped Australian
+            stores only. Whole-database probe (3 Oct 2026): <strong>10 AUD rows</strong> in total —
+            coverage, not the pipeline, is the limiter. The backend exposes live counts at
+            <code>GET /api/retailers/diagnostics</code>.</span>
+          </li>
+          <li>
+            <span class="ds-name">Fixture data</span>
+            <span class="tag">prices</span><span class="tag">local demo</span>
+            <span class="status ok">on</span>
+            <span class="ds-note">Deterministic demo prices for three sample products, labelled
+            “fixture data” everywhere — never presented as live retailer prices.</span>
+          </li>
+        </ul>
+      </div>`;
+
+    probeOpenFoodFacts();
+  }
+
+  function renderScan() {
+    app().innerHTML = `
+      <h1>Scan a product</h1>
+      <p class="lede">Type a barcode (EAN-8, EAN-13, UPC-A, GTIN-14) or tap a fixture.
+      The GS1 check digit is validated before anything else — the same rule as the backend.</p>
+
+      <div class="card mt">
+        <label for="barcode-input">Barcode</label>
+        <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
+          <input id="barcode-input" inputmode="numeric" autocomplete="off"
+                 placeholder="e.g. 9310640020223" aria-describedby="barcode-hint" />
+          <button id="lookup-btn" class="btn">Look up</button>
+        </div>
+        <p id="barcode-hint" class="muted small">UPC-A is normalised to a 13-digit GTIN. Fixtures:</p>
+        <div id="fixture-chips">
+          ${FIXTURES.PRODUCTS.map((p) => `
+            <button class="chip" data-barcode="${p.barcode}">
+              ${esc(p.brand)} ${esc(p.canonical_name)} · ${p.barcode}
+            </button>`).join('')}
+        </div>
+        <div id="scan-result" class="mt" aria-live="polite"></div>
+      </div>`;
+
+    $('#lookup-btn').addEventListener('click', resolveFromInput);
+    $('#barcode-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') resolveFromInput();
+    });
+    document.querySelectorAll('#fixture-chips .chip').forEach((chip) => {
+      chip.addEventListener('click', () => { location.hash = `#/product/${chip.dataset.barcode}`; });
+    });
+    $('#barcode-input').focus();
+  }
+
+  function resolveFromInput() {
+    const input = $('#barcode-input');
+    const result = validateBarcode(input.value);
+    const box = $('#scan-result');
+    if (!result.valid) {
+      const reasons = {
+        empty: 'Enter a barcode first.',
+        unsupported_length: 'Unsupported length — use EAN-8, EAN-13, UPC-A (12) or GTIN-14.',
+        bad_check_digit: 'Check digit failed — this barcode has a typo (GS1 mod-10).',
+      };
+      box.innerHTML = `<div class="card"><span class="status error">Invalid</span>
+        <p class="mt">${esc(reasons[result.reason] || 'Invalid barcode.')}</p></div>`;
+      return;
+    }
+    location.hash = `#/product/${result.normalized}`;
+  }
+
+  async function renderProduct(barcode) {
+    if (!barcode || !validateBarcode(barcode).valid) {
+      app().innerHTML = `<h1>Product</h1><div class="card"><span class="status error">Invalid</span>
+        <p class="mt">That is not a valid supported barcode. <a href="#/scan">Try again</a>.</p></div>`;
+      return;
+    }
+
+    const fixture = FIXTURES.byBarcode[barcode];
+    const existing = getWatchItem(barcode);
+
+    app().innerHTML = `
+      <div id="product-root">
+        <div class="sk" style="height:1.7rem;width:68%"></div>
+        <div class="card mt">
+          <div class="sk" style="height:1.1rem;width:32%"></div>
+          <div class="sk" style="height:.85rem;width:88%;margin-top:.7rem"></div>
+          <div class="sk" style="height:.85rem;width:58%;margin-top:.45rem"></div>
+          <p class="muted small mt">Resolving barcode ${esc(barcode)}…</p>
+        </div>
+      </div>`;
+
+    let product = null;
+    let lookupNote = '';
+
+    if (fixture) {
+      product = fixture;
+    } else {
+      try {
+        product = await lookupOpenFoodFacts(barcode);
+        lookupNote = product
+          ? 'Identity from Open Food Facts (free, open database). Unverified — prices are not monitored for this product yet.'
+          : 'Not found in Open Food Facts yet. In the app this barcode would be submitted for moderation and tracked locally as unverified.';
+      } catch (err) {
+        lookupNote = 'Open Food Facts lookup failed (offline or rate-limited). Identity unknown — would enter the moderation queue in the app.';
+      }
+    }
+
+    const root = $('#product-root');
+    if (!root) return; // navigated away while the lookup was in flight
+
+    if (!product) {
+      root.innerHTML = `
+        <h1>Unknown barcode ${esc(barcode)}</h1>
+        <div class="card"><span class="status unverified">Unverified</span>
+          <p class="mt">${esc(lookupNote)}</p>
+          <p class="muted small">GS1 check digit: valid · Type: ${esc(validateBarcode(barcode).type)}</p>
+          <p class="mt"><a class="btn secondary" href="#/scan">Scan another</a></p>
+        </div>`;
+      return;
+    }
+
+    const verified = product.verification_status === 'verified';
+    const offersHtml = (fixture && fixture.offers.length) ? `
+      <h2 class="mt">Offers (fixture prices)</h2>
+      <div class="card">
+        <div class="table-scroll">
+        <table class="offers">
+          <thead><tr>
+            <th>Retailer</th><th>Listing</th>
+            <th class="num">Current</th><th class="num">Observed usual</th>
+            <th class="num">Lowest observed</th><th class="num">Last checked</th>
+          </tr></thead>
+          <tbody>
+            ${fixture.offers.map((o) => {
+              const hist = fixture.history[o.retailer] || [];
+              const latest = hist[hist.length - 1];
+              return `<tr>
+                <td>${esc(retailerName(o.retailer))}</td>
+                <td>${esc(o.title)}</td>
+                <td class="num"><span class="price">${aud(o.current)}</span>
+                  ${o.current < o.usual ? `<span class="was">${aud(o.usual)}</span>` : ''}</td>
+                <td class="num">${aud(o.usual)}</td>
+                <td class="num">${aud(o.low)}</td>
+                <td class="num">${latest ? timeAgo(latest.at) : '—'}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        </div>
+        <p class="muted small mt">Fixture data for the sample — not live retailer prices.</p>
+      </div>
+      <p class="mt"><a class="btn secondary" href="#/history/${esc(barcode)}">View price history</a></p>` : `
+      <div class="card mt"><span class="status unverified">No monitored offers</span>
+        <p class="mt muted">ShelfSignal has no price observations for this product yet. It can still be
+        watched locally; signals start once a lawful price source is connected.</p></div>`;
+
+    root.innerHTML = `
+      <h1>${esc(productTitle(product))}</h1>
+      <p class="lede">
+        <span class="status ${verified ? 'verified' : 'unverified'}">${verified ? 'Verified' : 'Unverified'}</span>
+        ${product.category ? ` · ${esc(product.category)}` : ''}
+        ${productSize(product) ? ` · ${esc(productSize(product))}` : ''}
+        ${product.alcohol_abv ? ` · ${product.alcohol_abv.toFixed(1)}% ABV · 18+` : ''}
+      </p>
+      ${lookupNote ? `<p class="muted small">${esc(lookupNote)}</p>` : ''}
+      ${product.image_url ? `<img src="${esc(product.image_url)}" alt="Product photo from Open Food Facts" style="max-width:180px;border-radius:12px;margin-top:0.75rem"/>` : ''}
+      ${offersHtml}
+      <div class="card mt" id="watch-card">
+        <h2>${existing ? 'Signal rule' : 'Add to My Watchlist'}</h2>
+        ${ruleFormHtml(existing)}
+      </div>
+      <p class="mt"><a class="btn ghost" href="#/scan">← Back to scan</a></p>`;
+
+    wireRuleForm(barcode, existing);
+  }
+
+  function ruleFormHtml(item) {
+    const rule = (item && item.rule) || {};
+    const rt = rule.rule_type || 'target_price';
+    return `
+      <div class="form-row">
+        <div>
+          <label for="rule-type">Rule type</label>
+          <select id="rule-type">
+            <option value="target_price" ${rt === 'target_price' ? 'selected' : ''}>Target price</option>
+            <option value="discount_percent" ${rt === 'discount_percent' ? 'selected' : ''}>Discount % below usual</option>
+            <option value="near_historical_low" ${rt === 'near_historical_low' ? 'selected' : ''}>Near historical low</option>
+            <option value="any_price_drop" ${rt === 'any_price_drop' ? 'selected' : ''}>Any price drop</option>
+          </select>
+        </div>
+        <div id="rule-param-target">
+          <label for="rule-target">Target price (A$)</label>
+          <input id="rule-target" inputmode="decimal" value="${rule.target_price != null ? rule.target_price : ''}" placeholder="e.g. 5.50"/>
+        </div>
+        <div id="rule-param-discount" hidden>
+          <label for="rule-discount">Minimum discount (%)</label>
+          <input id="rule-discount" inputmode="decimal" value="${rule.minimum_discount_percent != null ? rule.minimum_discount_percent : ''}" placeholder="e.g. 20"/>
+        </div>
+        <div id="rule-param-nearlow" hidden>
+          <label for="rule-nearlow">Within % of low</label>
+          <input id="rule-nearlow" inputmode="decimal" value="${rule.near_low_percent != null ? rule.near_low_percent : ''}" placeholder="e.g. 5"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label for="rule-cooldown">Cooldown (hours)</label>
+          <input id="rule-cooldown" inputmode="decimal" value="${rule.cooldown_hours != null ? rule.cooldown_hours : '24'}"/>
+        </div>
+      </div>
+      <div class="switch-row">
+        <span class="label">Share with household
+          <span class="sub">${state.household ? 'Members see this item — private items never leave this device' : 'Create a household first — private is the default'}</span></span>
+        <span class="switch">
+          <input type="checkbox" id="share-household" ${item && item.visibility === 'shared' ? 'checked' : ''}
+                 ${state.household ? '' : 'disabled'} aria-label="Share with household" />
+          <span class="track"></span><span class="thumb"></span>
+        </span>
+      </div>
+      <p class="mt"><button id="save-rule" class="btn">${item ? 'Update rule & check prices' : 'Watch this product'}</button>
+      ${item ? `<button id="remove-watch" class="btn danger" style="margin-left:0.5rem">Remove</button>` : ''}</p>
+      <p id="rule-status" class="muted small" aria-live="polite"></p>`;
+  }
+
+  function wireRuleForm(barcode, existing) {
+    const typeSel = $('#rule-type');
+    const showParam = () => {
+      $('#rule-param-target').hidden = typeSel.value !== 'target_price';
+      $('#rule-param-discount').hidden = typeSel.value !== 'discount_percent';
+      $('#rule-param-nearlow').hidden = typeSel.value !== 'near_historical_low';
+    };
+    typeSel.addEventListener('change', showParam);
+    showParam();
+
+    $('#save-rule').addEventListener('click', () => {
+      const rule = {
+        rule_type: typeSel.value,
+        include_member_prices: true,
+        include_multi_buy: true,
+        allowed_retailers: null,
+        excluded_retailers: [],
+        cooldown_hours: Number($('#rule-cooldown').value) || 24,
+        enabled: true,
+      };
+      if (rule.rule_type === 'target_price') rule.target_price = Number($('#rule-target').value);
+      if (rule.rule_type === 'discount_percent') rule.minimum_discount_percent = Number($('#rule-discount').value);
+      if (rule.rule_type === 'near_historical_low') rule.near_low_percent = Number($('#rule-nearlow').value);
+
+      const item = getWatchItem(barcode);
+      const shared = Boolean($('#share-household') && $('#share-household').checked);
+      const visibility = shared ? 'shared' : 'private';
+      if (item) {
+        item.rule = rule;
+        item.visibility = visibility;
+        item.sharedBy = shared ? 'self' : null;
+      } else {
+        state.watchItems.push({
+          barcode, addedAt: new Date().toISOString(), rule, status: 'active',
+          visibility, sharedBy: shared ? 'self' : null,
+        });
+      }
+      saveState();
+      $('#rule-status').textContent = 'Saved. Checking prices…';
+      setTimeout(checkAllPrices, 350);
+    });
+
+    const removeBtn = $('#remove-watch');
+    if (removeBtn) {
+      removeBtn.addEventListener('click', () => {
+        const item = getWatchItem(barcode);
+        if (item) { item.status = 'removed'; saveState(); }
+        location.hash = '#/watchlist';
+      });
+    }
+  }
+
+  function renderWatchlist() {
+    const items = state.watchItems.filter((w) => w.status !== 'removed');
+
+    if (!items.length) {
+      app().innerHTML = `
+        <h1>My Watchlist</h1>
+        <div class="card mt"><p class="muted">Nothing watched yet. Scan a product and set a
+        signal rule — it takes about 20 seconds.</p>
+        <p class="mt"><a class="btn" href="#/scan">Scan a product</a></p></div>`;
+      return;
+    }
+
+    app().innerHTML = `
+      <h1>My Watchlist</h1>
+      <p class="lede">${items.length} watched product${items.length === 1 ? '' : 's'}.
+      <button id="check-all" class="btn" style="margin-left:0.5rem">Check prices now</button></p>
+      <p id="watch-status" class="muted small" aria-live="polite"></p>
+      <div id="watch-grid" class="grid mt">
+        ${items.map((w) => {
+          const p = FIXTURES.byBarcode[w.barcode];
+          const snoozed = isSnoozed(w, Date.now());
+          if (!p) {
+            return `<div class="card">
+              <h3>${esc(w.barcode)} <span class="status unverified">Unverified</span></h3>
+              <p class="muted small">No fixture identity — identity pending verification.</p>
+              <p class="small">Rule: ${esc(ruleSummary(w.rule))}</p>
+              ${w.visibility === 'shared' ? '<p><span class="status ok">Shared</span></p>' : ''}
+              <div class="signal-actions">
+                <a class="btn ghost small" href="#/product/${esc(w.barcode)}">Details</a>
+              </div>
+            </div>`;
+          }
+          return `<div class="card">
+            <h3>${esc(productTitle(p))}
+              ${snoozed ? `<span class="status near">Snoozed</span>` : `<span class="status verified">Verified</span>`}
+            </h3>
+            <p class="muted small">${esc(productSize(p))}${p.alcohol_abv ? ` · ${p.alcohol_abv.toFixed(1)}% ABV` : ''} · added ${timeAgo(w.addedAt)}</p>
+            <p class="small"><strong>Rule:</strong> ${esc(ruleSummary(w.rule))}</p>
+            ${w.visibility === 'shared' ? '<p><span class="status ok">Shared</span> <span class="muted small">visible to your household</span></p>' : ''}
+            <p class="small muted">Best fixture offer: ${bestOfferLine(p)}</p>
+            <div class="signal-actions">
+              <a class="btn ghost small" href="#/product/${esc(w.barcode)}">Details</a>
+              <a class="btn ghost small" href="#/history/${esc(w.barcode)}">History</a>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+
+    $('#check-all').addEventListener('click', checkAllPrices);
+  }
+
+  function checkAllPrices() {
+    const now = new Date().toISOString();
+    let created = 0;
+    let suppressed = 0;
+
+    for (const item of state.watchItems.filter((w) => w.status === 'active' && w.rule.enabled !== false)) {
+      const p = FIXTURES.byBarcode[item.barcode];
+      if (!p || !p.offers) continue;
+      for (const offer of p.offers) {
+        const history = p.history[offer.retailer] || [];
+        const latest = history[history.length - 1];
+        const signal = evaluateSignal({
+          watchItem: item,
+          rule: item.rule,
+          offer: {
+            price: latest ? latest.price : offer.current,
+            observedAt: latest ? latest.at : now,
+            matchConfidence: 1.0,
+            availabilityStatus: 'available',
+          },
+          history,
+          lastSignalAt: lastSignalFor(item.barcode, offer.retailer),
+          now,
+        });
+        if (!signal) {
+          if (isInCooldown(lastSignalFor(item.barcode, offer.retailer), now, item.rule.cooldown_hours)) suppressed += 1;
+          continue;
+        }
+        state.signals.push({
+          id: `sig-${Date.now()}-${created}-${Math.random().toString(36).slice(2, 7)}`,
+          barcode: item.barcode,
+          retailer: offer.retailer,
+          ruleType: signal.ruleType,
+          label: signal.label,
+          explanation: signal.explanation,
+          currentPrice: signal.currentPrice,
+          baselinePrice: signal.baselinePrice,
+          historicalLow: signal.historicalLow,
+          differenceAmount: signal.differenceAmount,
+          differencePercent: signal.differencePercent,
+          confidence: signal.confidence,
+          conditions: signal.conditions,
+          observedAt: signal.observedAt,
+          status: signal.label === SIGNAL_LABELS.NEAR ? 'info' : 'active',
+          createdAt: now,
+        });
+        created += 1;
+      }
+    }
+
+    saveState();
+    lastCheckNote = created === 0
+      ? suppressed > 0
+        ? `No new signals — ${suppressed} offer${suppressed === 1 ? '' : 's'} suppressed by cooldown (duplicate suppression working as designed).`
+        : 'No rules triggered on this check — nothing worth alerting on right now.'
+      : `${created} new signal${created === 1 ? '' : 's'} evaluated.`;
+
+    if (location.hash.replace(/^#\/?/, '').startsWith('signals')) {
+      renderSignals();
+    } else {
+      location.hash = '#/signals';
+    }
+  }
+
+  function renderSignals() {
+    const signals = state.signals.slice().reverse();
+
+    if (!signals.length) {
+      app().innerHTML = `
+        <h1>Signals</h1>
+        <div class="card mt"><p class="muted">No signals yet. Add products to your watchlist and
+        check prices — ShelfSignal only alerts when a rule genuinely triggers.</p>
+        <p class="mt"><a class="btn" href="#/watchlist">Open watchlist</a></p></div>`;
+      return;
+    }
+
+    const active = signals.filter((s) => s.status === 'active');
+    const rest = signals.filter((s) => s.status !== 'active');
+
+    app().innerHTML = `
+      <h1>Signals</h1>
+      <p class="lede">${active.length} active. Each one explains what, where, why, and how confident
+      the match is — and never fires on low-confidence matches (spec §14).</p>
+      ${lastCheckNote ? `<p class="muted small" id="check-note">${esc(lastCheckNote)}</p>` : ''}
+      <div id="signals-list" class="mt">
+        ${active.map((s) => signalCardHtml(s)).join('') || '<p class="muted">No active signals.</p>'}
+        ${rest.length ? `<h2 class="mt">Closed & informational</h2>${rest.map((s) => signalCardHtml(s)).join('')}` : ''}
+      </div>`;
+
+    document.querySelectorAll('[data-action]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const sig = state.signals.find((s) => s.id === btn.dataset.id);
+        const item = getWatchItem(sig.barcode);
+        if (btn.dataset.action === 'bought') {
+          sig.status = 'bought';
+          if (item) { item.lastBoughtAt = new Date().toISOString(); item.status = 'active'; }
+        } else if (btn.dataset.action === 'dismiss') {
+          sig.status = 'dismissed';
+        } else if (btn.dataset.action === 'snooze') {
+          sig.status = 'snoozed';
+          if (item) item.snoozedUntil = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+        }
+        saveState();
+        renderSignals();
+      });
+    });
+  }
+
+  function signalCardHtml(s) {
+    const p = FIXTURES.byBarcode[s.barcode];
+    const name = p ? productTitle(p) : `Barcode ${s.barcode}`;
+    const isInfo = s.status === 'info';
+    return `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;align-items:start">
+          <div>
+            <span class="signal-label">${esc(s.label)}</span>
+            <span class="status ${labelClass(s.label)}" style="margin-left:0.5rem">${isInfo ? 'Informational' : 'Active'}</span>
+            ${s.status === 'bought' ? '<span class="status verified" style="margin-left:0.4rem">Bought</span>' : ''}
+            ${s.status === 'dismissed' ? '<span class="status unverified" style="margin-left:0.4rem">Dismissed</span>' : ''}
+            ${s.status === 'snoozed' ? '<span class="status near" style="margin-left:0.4rem">Snoozed 7 d</span>' : ''}
+          </div>
+          <span class="muted small">${timeAgo(s.createdAt)}</span>
+        </div>
+        <h3 class="mt" style="margin-bottom:0.2rem">${esc(name)}</h3>
+        <p class="muted small">${esc(retailerName(s.retailer))} · ${p && p.alcohol_abv ? `${p.alcohol_abv.toFixed(1)}% ABV · ` : ''}match confidence ${Math.round(s.confidence * 100)}%</p>
+        <p class="signal-explain">${esc(s.explanation)}.</p>
+        <div class="signal-meta">
+          <span>Current <strong class="price">${aud(s.currentPrice)}</strong></span>
+          ${s.baselinePrice != null ? `<span>Observed usual ${aud(s.baselinePrice)}</span>` : ''}
+          ${s.historicalLow != null ? `<span>Lowest observed ${aud(s.historicalLow)}</span>` : ''}
+          ${s.differencePercent != null ? `<span class="delta-down">−${Math.abs(s.differencePercent).toFixed(1)}%</span>` : ''}
+          <span>Checked ${timeAgo(s.observedAt)}</span>
+        </div>
+        ${s.status === 'active' ? `
+          <div class="signal-actions">
+            <button class="btn small" data-action="bought" data-id="${s.id}">Mark as bought</button>
+            <button class="btn ghost small" data-action="snooze" data-id="${s.id}">Snooze 7 days</button>
+            <button class="btn ghost small" data-action="dismiss" data-id="${s.id}">Dismiss</button>
+            <a class="btn secondary small" href="#/product/${esc(s.barcode)}">View product</a>
+          </div>` : ''}
+      </div>`;
+  }
+
+  function renderHistory(barcode) {
+    const p = FIXTURES.byBarcode[barcode];
+    if (!p) {
+      app().innerHTML = `<h1>Price history</h1>
+        <div class="card mt"><p class="muted">No fixture history for this barcode. Only verified
+        fixture products carry observation history in the sample.</p>
+        <p class="mt"><a class="btn secondary" href="#/scan">Scan another</a></p></div>`;
+      return;
+    }
+
+    const charts = p.offers.map((o) => {
+      const hist = (p.history[o.retailer] || []).slice().reverse(); // oldest → newest
+      return `
+        <div class="card">
+          <h3>${esc(retailerName(o.retailer))} <span class="muted small">— ${esc(o.title)}</span></h3>
+          ${sparklineSvg(hist)}
+          <p class="muted small mt">Observed usual (median) ${aud(calculateObservedBaseline(hist))} ·
+          lowest observed ${aud(calculateHistoricalLow(hist))} ·
+          ${hist.length} observations over ~8 weeks. Append-only in production; fresh observations
+          arrive periodically, never claimed as continuous monitoring.</p>
+        </div>`;
+    }).join('');
+
+    app().innerHTML = `
+      <h1>Price history</h1>
+      <p class="lede">${esc(productTitle(p))} ${productSize(p) ? `· ${esc(productSize(p))}` : ''}</p>
+      <div class="mt">${charts}</div>
+      <p class="mt"><a class="btn secondary" href="#/product/${esc(barcode)}">← Back to product</a></p>`;
+  }
+
+  function sparklineSvg(hist) {
+    if (!hist.length) return '<p class="muted">No observations yet.</p>';
+    const W = 900, H = 120, PAD = 8;
+    const prices = hist.map((h) => h.price);
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const span = Math.max(max - min, 0.01);
+    const x = (i) => PAD + (i * (W - 2 * PAD)) / Math.max(hist.length - 1, 1);
+    const y = (v) => H - PAD - ((v - min) / span) * (H - 2 * PAD - 14);
+    const pts = hist.map((h, i) => `${x(i).toFixed(1)},${y(h.price).toFixed(1)}`).join(' ');
+    const last = hist[hist.length - 1];
+    const low = calculateHistoricalLow(hist);
+    return `
+      <svg class="sparkline" viewBox="0 0 ${W} ${H}" role="img"
+           aria-label="Price history from ${aud(min)} to ${aud(max)}">
+        <line x1="${PAD}" y1="${y(low)}" x2="${W - PAD}" y2="${y(low)}" class="low" stroke-width="1"/>
+        <polyline points="${pts}" class="line"/>
+        <circle cx="${x(hist.length - 1)}" cy="${y(last.price)}" r="4" class="point"/>
+        <text x="${W - PAD}" y="${y(low) - 4}" text-anchor="end" font-size="10" fill="currentColor" class="muted">low ${aud(low)}</text>
+        <text x="${x(hist.length - 1) - 6}" y="${y(last.price) - 8}" text-anchor="end" font-size="11" font-weight="700" fill="currentColor">${aud(last.price)}</text>
+      </svg>`;
+  }
+
+  /* ================================================================= *
+   * Theme + boot
+   * ================================================================= */
+
+  function applyTheme() {
+    document.documentElement.setAttribute('data-theme', state.theme === 'light' ? 'light' : 'dark');
+  }
+
+  function applyPalette() {
+    document.documentElement.dataset.palette = PALETTES.some((p) => p.id === state.palette) ? state.palette : 'calm';
+  }
+
+  $('#theme-toggle').addEventListener('click', () => {
+    state.theme = state.theme === 'light' ? 'dark' : 'light';
+    saveState();
+    applyTheme();
+  });
+
+  applyTheme();
+  applyPalette();
+  router();
+  </script>
+</body>
+</html>
