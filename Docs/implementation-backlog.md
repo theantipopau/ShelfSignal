@@ -1,475 +1,97 @@
 # Implementation Backlog
 
-**Product:** ShelfSignal  
-**Version:** 1.0.0  
-**Last Updated:** 2026-10-01
+**Product:** ShelfSignal
+**Last reconciled:** 2026-10-04 (against code, tests and CI — every `[x]` below is backed by a test or a runnable artefact)
+
+Legend: `[x]` done and tested · `[~]` partly done (note says what is missing) · `[ ]` not started.
 
 ---
 
-## Status Snapshot (2026-10-01)
+## Where we are
 
-Done in the vertical-slice rebuild (see [CHANGELOG.md](../CHANGELOG.md)):
-- [x] Backend project setup (Express, health, request IDs, rate limiting, docker-compose)
-- [x] Database schema for users, products, product_barcodes, retailer_products,
-      price_observations, watch_items, signal_rules, signal_events + runner and seeds
-- [x] Email/password auth with account deletion (privacy foundation)
-- [x] Barcode validation + resolve-barcode + unknown-barcode submission
-- [x] Watchlist CRUD + signal rules (target/discount/near-low/any-drop)
-- [x] Signal evaluation engine (pure, unit-tested) + fixture ingestion + signals feed
-- [x] Signals actions: dismiss / snooze / mark-bought
-- [x] Mobile shell: Riverpod, GoRouter shell, design tokens, demo mode, all five tabs
-- [x] Camera barcode scanning (mobile_scanner 7): opt-in permission timing (spec 9.2),
-      GTIN-only detection + GS1 check-digit gate, haptic/visual confirmation, duplicate
-      suppression, torch control, manual-entry fallback; Android/iOS camera declarations
-- [x] Unit tests backend (52) + mobile (7); flutter analyze clean
+| Spec phase (§24) | State |
+|---|---|
+| 0 Feasibility | **Open.** Non-code gates not done: trade mark search, retailer data rights, willingness-to-pay. Identity data is solved for grocery (Open Food Facts, 82k AU products); **price data is the blocker** — see [retailer-api-research.md](retailer-api-research.md). |
+| 1 Foundation | Done (Express + Postgres per ADR-0001). |
+| 2 Vertical slice | Done end to end in the backend; mobile runs the full loop in demo mode. |
+| 3 Retailers & history | Partial: provenance-tracked ingest + diagnostics + Open Prices path exist; **no real retailer adapter**. |
+| 4 Household & premium UX | Backend and web sample done. **Flutter screens for households, notification preferences, shopping list and reports are not built.** |
+| 5 Closed beta | Not started (no deployment, backups, push, store pipeline). |
 
-Not started (unchanged):
-- [ ] Sign in with Apple / Google (Firebase)
-- [ ] Push pipeline (FCM send path; device-token registration exists)
-- [ ] Household sharing, shopping list, admin portal, retailer adapters
+Quality gates today: backend 159 tests (147 contract + 12 real-Postgres integration) (PGlite locally, Postgres 16 service in CI), `eslint` clean, `npm audit` 0 high, gitleaks in CI; mobile `flutter analyze` clean + 10 tests.
 
 ---
 
-## P0 - Critical Path (MVP)
+## P0 — critical path to a usable beta
 
-### Mobile Foundation
-- [ ] **Design System**
-  - [ ] Create design tokens (colors, typography, spacing)
-  - [ ] Implement deep charcoal dark mode
-  - [ ] Implement warm off-white light mode
-  - [ ] Signal green/teal for verified positive signals
-  - [ ] Amber for conditional/near-target states
-  - [ ] WCAG 2.2 AA contrast ratios
+### Data & trust (the real blocker)
+- [ ] **Decide the price-data strategy** (business decision, see research doc). Options: partnership/authorised feed, affiliate product feeds (availability unverified), user-contributed prices with provenance + moderation, or launch as scan-and-target tracker while pursuing a feed.
+- [ ] Phase 0 gates: Australian trade mark search, retailer data rights, willingness-to-pay validation.
+- [x] Provenance on every observation (`source_method`, `source_reference`); append-only `price_observations`
+- [x] Freshness gate (48 h, configurable) with clock-skew tolerance; confidence gate (0.75) before push-worthy signals
+- [x] Price ingestion is **admin-only**; fixture ingest disabled in production unless `ALLOW_FIXTURE_INGEST=true`
+- [x] Open Prices server-side ingest (AUD + AU-store only, dedupe, proof-based confidence)
+- [x] Open Food Facts identity enrichment on unknown barcodes (unverified, never auto-verified)
 
-- [ ] **Navigation**
-  - [ ] Set up GoRouter configuration
-  - [ ] Create app shell layout
-  - [ ] Implement bottom navigation (Home, Scan, Watchlist, Profile)
-  - [ ] Add loading and error states
+### Backend
+- [x] Express app, health + readiness, request IDs, rate limiting, CORS allow-list (`CORS_ORIGINS`), docker-compose Postgres
+- [x] Migrations 001–005 + runner + seeds; validated on real PostgreSQL semantics
+- [x] Auth: register / login / me / patch / delete (cascade) / **data export**; roles (`users.role`), `make-admin` script
+- [x] Barcode validation (GS1), resolve-barcode, unknown-barcode submission, search, product detail, scan history, price history
+- [x] Watchlist CRUD, one editable rule per item (target / discount % / near-low / any-drop), member & multi-buy toggles, cooldown
+- [x] Pure signal engine + explainable signals; dismiss / snooze / mark-bought
+- [x] Households: create, one-time hashed invites, roles, removal, leave, ownership transfer, shared items (private never leak)
+- [x] Notification preferences + dry-run preview (quiet hours, digest, cooldown, high-value override, category/retailer mutes)
+- [x] Shopping list (private + household-shared; members may complete, only owner edits/deletes)
+- [x] Mismatch / data reports (idempotent) and **moderation API**: unverified queue, verify (with corrections) / reject, resolve report with optional unmap, audit trail
+- [ ] Device registration is stored; **FCM send pipeline not built** (needs a Firebase project)
+- [ ] Refresh-token rotation (currently a single 7-day JWT), Sign in with Apple / Google, password reset
+- [ ] OpenAPI document, `/v1` versioning, idempotency keys, cursor pagination
+- [ ] Alcohol: `is_adult` stored, but no opt-in enforcement on alcohol watch items / alerts yet
+- [ ] Multiple rules per watch item (spec §9.6 lists several rule types per product)
+- [ ] Unknown-barcode photo upload (object storage)
 
-- [ ] **Authentication**
-  - [ ] Sign in with Apple integration
-  - [ ] Sign in with Google integration
-  - [ ] Email/password authentication
-  - [ ] Secure token storage
-  - [ ] Account creation flow
-  - [ ] Age confirmation before alcohol features
-
-### Backend Foundation
-- [ ] **Project Setup**
-  - [ ] FastAPI application structure
-  - [ ] Docker Compose configuration (PostgreSQL, Caddy)
-  - [ ] Environment variable management
-  - [ ] Health check endpoint
-  - [ ] Request logging with request IDs
-
-- [ ] **Database Schema**
-  - [ ] User table
-  - [ ] Household table
-  - [ ] Product table
-  - [ ] ProductBarcode table
-  - [ ] Retailer table
-  - [ ] RetailerProduct table
-  - [ ] PriceObservation table
-  - [ ] WatchItem table
-  - [ ] SignalRule table
-  - [ ] Migration scripts
-
-- [ ] **Authentication API**
-  - [ ] POST /v1/auth/session
-  - [ ] DELETE /v1/auth/session
-  - [ ] GET /v1/me
-  - [ ] DELETE /v1/me
-
-### Product & Barcode
-- [ ] **Barcode Scanning**
-  - [x] Camera permission request (opt-in timing: prompt fires on "Start camera", spec 9.2)
-  - [x] Barcode detection (EAN-8, EAN-13, UPC-A — GTIN-only format filter + GS1 check digit)
-  - [x] Haptic and visual confirmation (mediumImpact + reticle + resolved card)
-  - [x] Duplicate detection (same code suppressed for 4s / while resolving)
-  - [x] Torch control
-  - [x] Manual entry fallback (always available, accessible alternative)
-  - [ ] Offline queueing
-
-- [ ] **Product Resolution**
-  - [ ] POST /v1/products/resolve-barcode
-  - [ ] Exact barcode matching
-  - [ ] Retailer mapping lookup
-  - [ ] Open database fallback
-  - [ ] Unknown barcode submission
-  - [ ] Confidence scoring
-
-- [ ] **Product Catalogue**
-  - [ ] GET /v1/products/search
-  - [ ] GET /v1/products/{id}
-  - [ ] Product normalisation (currency, units, pack)
-  - [ ] Category and family classification
-
-### Watchlist & Rules
-- [ ] **Watchlist CRUD**
-  - [ ] GET /v1/watch-items
-  - [ ] POST /v1/watch-items
-  - [ ] PATCH /v1/watch-items/{id}
-  - [ ] DELETE /v1/watch-items/{id}
-  - [ ] Local-first caching with Drift
-  - [ ] Sync conflict resolution
-
-- [ ] **Signal Rules**
-  - [ ] POST /v1/watch-items/{id}/rules
-  - [ ] PATCH /v1/signal-rules/{id}
-  - [ ] DELETE /v1/signal-rules/{id}
-  - [ ] Rule types: target price, discount %, historical low, half-price
-  - [ ] Per-product rule configuration
-  - [ ] Rule recommendations
-
-### Signal Evaluation
-- [ ] **Offer Qualification**
-  - [ ] Match confidence threshold check
-  - [ ] Freshness validation
-  - [ ] Availability check
-  - [ ] Retailer/location filter application
-  - [ ] Member/multi-buy eligibility
-
-- [ ] **Signal Generation**
-  - [ ] Rule evaluation logic
-  - [ ] Cooldown and deduplication
-  - [ ] Explainable signal building
-  - [ ] Baseline calculation (observed usual price)
-  - [ ] Historical low comparison
-
-- [ ] **Signal Display**
-  - [ ] GET /v1/signals
-  - [ ] Active signals list
-  - [ ] Signal card UI (product, retailer, price, baseline, difference)
-  - [ ] Conditions display (member-only, multi-buy)
-  - [ ] Confidence indicator
-  - [ ] Last checked timestamp
-
-### Notifications
-- [ ] **Push Setup**
-  - [ ] Firebase Cloud Messaging configuration
-  - [ ] APNs configuration
-  - [ ] Device registration API
-  - [ ] DELETE /v1/devices/{id}
-
-- [ ] **Notification Delivery**
-  - [ ] Signal notification payload
-  - [ ] Deduplication logic
-  - [ ] Cooldown enforcement
-  - [ ] Quiet hours respect
-  - [ ] Test push endpoint
-
-### Household
-- [ ] **Household Management**
-  - [ ] POST /v1/households
-  - [ ] GET /v1/households/{id}
-  - [ ] POST /v1/households/{id}/invites
-  - [ ] POST /v1/household-invites/{token}/accept
-  - [ ] DELETE /v1/households/{id}/members/{userId}
-  - [ ] Owner/member role separation
-  - [ ] Shared vs private items
-
-- [ ] **Shared Actions**
-  - [ ] Mark as bought (household sync)
-  - [ ] Snooze (household sync)
-  - [ ] Purchase notes
-  - [ ] Activity feed
-
-### Shopping List
-- [ ] **List Management**
-  - [ ] GET /v1/shopping-list
-  - [ ] POST /v1/shopping-list/items
-  - [ ] PATCH /v1/shopping-list/items/{id}
-  - [ ] DELETE /v1/shopping-list/items/{id}
-  - [ ] Add from signals
-  - [ ] Manual entry
-  - [ ] Quantity tracking
-  - [ ] Retailer grouping
-  - [ ] Purchase completion
-
-### Privacy & Deletion
-- [ ] **Data Export**
-  - [ ] User data export endpoint
-  - [ ] GDPR-compliant export format
-
-- [ ] **Account Deletion**
-  - [ ] DELETE /v1/me (full deletion)
-  - [ ] Data purge workflow
-  - [ ] Grace period handling
-  - [ ] Audit log entry
-
-### Admin Moderation
-- [ ] **Moderation Queue**
-  - [ ] Unresolved barcodes view
-  - [ ] Product merge/split tools
-  - [ ] Barcode mapping review
-  - [ ] Liquor metadata review
-  - [ ] Retailer mapping review
-
-- [ ] **Admin Authentication**
-  - [ ] Role-based access control
-  - [ ] Admin MFA
-  - [ ] Audit logging
-
-### Testing
-- [ ] **Unit Tests**
-  - [ ] Barcode validation
-  - [ ] Unit calculations
-  - [ ] Signal evaluation logic
-  - [ ] Baseline calculations
-  - [ ] Cooldown logic
-  - [ ] Household permissions
-
-- [ ] **Integration Tests**
-  - [ ] Adapter normalisation
-  - [ ] Barcode resolution
-  - [ ] Watch item to signal flow
-  - [ ] Push payload construction
-  - [ ] Invitation lifecycle
-
-- [ ] **End-to-End Tests**
-  - [ ] Create account → scan → confirm → set rule → receive signal → mark bought → sync to household
-
-### Accessibility
-- [ ] **Screen Reader Support**
-  - [ ] Semantic labels
-  - [ ] Dynamic text scaling
-  - [ ] TalkBack/VoiceOver testing
-
-- [ ] **Visual Accessibility**
-  - [ ] Colour-independent states
-  - [ ] Visible focus indicators
-  - [ ] Minimum touch targets
-  - [ ] Reduced motion support
-
-### Monitoring & Backups
-- [ ] **Observability**
-  - [ ] Structured logging
-  - [ ] Request ID tracking
-  - [ ] Latency metrics
-  - [ ] Error tracking
-  - [ ] Crash reporting (mobile)
-
-- [ ] **Backups**
-  - [ ] Automated encrypted backups
-  - [ ] Backup verification tests
-  - [ ] Restore procedure documentation
-
----
-
-## P1 - Core Features (Beta)
-
-### Retailer Integration
-- [ ] **Adapter Framework**
-  - [ ] RetailerAdapter interface
-  - [ ] Health check endpoint
-  - [ ] Circuit breaker pattern
-  - [ ] Rate limiting
-  - [ ] Caching strategy
-
-- [ ] **First Retailer Integration**
-  - [ ] Coles or Woolworths (whichever has authorised access)
-  - [ ] Product search
-  - [ ] Offer fetching
-  - [ ] Price normalisation
-  - [ ] Store context capture
-
-- [ ] **Price History**
-  - [ ] GET /v1/products/{id}/price-history
-  - [ ] Append-only observations
-  - [ ] Retailer-specific history
-  - [ ] Observed usual price calculation
-  - [ ] Lowest observed price
-  - [ ] Unit price tracking
-
-- [ ] **Deal Confidence**
-  - [ ] Confidence labels (Verified, High, Needs Review, Unverified)
-  - [ ] Deal quality scoring
-  - [ ] Baseline vs current price
-  - [ ] Historical context display
-
-### Advanced Features
-- [ ] **Unknown Barcode Submission**
-  - [ ] Product photo upload
-  - [ ] Essential field entry
-  - [ ] Temporary local tracking
-  - [ ] Moderation submission
-  - [ ] Verification notification
-
-- [ ] **Mismatch Reporting**
-  - [ ] Report incorrect product match
-  - [ ] Submit correct product details
-  - [ ] Moderator review workflow
-
-- [ ] **Alcohol Features**
-  - [ ] Adult opt-in flow
-  - [ ] Alcohol category toggle (disable fully)
-  - [ ] Exact volume, ABV, vintage handling
-  - [ ] Member price disclosure
-  - [ ] Responsible service messaging
-
-- [ ] **Notification Preferences**
-  - [ ] GET /v1/notification-preferences
-  - [ ] PATCH /v1/notification-preferences
-  - [ ] Global switch
-  - [ ] Quiet hours
-  - [ ] Category controls
-  - [ ] Retailer controls
-  - [ ] Per-product cooldown
-  - [ ] Digest mode
-  - [ ] Immediate high-value signals
+### Mobile (Flutter)
+- [x] Riverpod + GoRouter shell, design tokens (light/dark), demo mode (honestly labelled), five tabs
+- [x] Camera scanning with opt-in permission timing, GS1 gate, haptics, duplicate suppression, torch, manual fallback
+- [x] Session token in platform secure storage (legacy plain-prefs token migrated)
+- [ ] Live-mode screens: households, notification preferences, shopping list, report mismatch, data export, admin tools
+- [ ] Continuous Scan mode, offline scan queue, Drift local-first cache + sync
+- [ ] Price-history chart, signal card parity with spec §9.8 actions (add to list, change rule, report mismatch)
+- [ ] Onboarding flow (§9.2), alcohol opt-in, accessibility audit (TalkBack / VoiceOver, large text)
+- [ ] FCM client + notification permission timing
 
 ### Operations
-- [ ] **Admin Dashboard**
-  - [ ] Ingestion dashboard
-  - [ ] Stale retailer detection
-  - [ ] Unresolved barcode queue
-  - [ ] Matching queue
-  - [ ] Notification failures
-  - [ ] Privacy-preserving metrics
-  - [ ] Schema warnings
-  - [ ] Support tools
-
-### Analytics
-- [ ] **Event Tracking**
-  - [ ] Onboarding completion
-  - [ ] First scan success
-  - [ ] Unknown barcode rate
-  - [ ] Time to first watch item
-  - [ ] Rule creation
-  - [ ] Notification opt-in
-  - [ ] Signal opens
-  - [ ] Mark as bought
-  - [ ] Mismatch reports
-  - [ ] Household conversion
-  - [ ] Retention
-  - [ ] Crashes
-  - [ ] Adapter freshness
-  - [ ] Delivery success
+- [x] CI: backend lint + tests, real-Postgres job, dependency audit, secret scan; mobile analyze + test
+- [ ] Deployment (Dockerfile, Caddy, VPS), staging, protected production release
+- [ ] Encrypted backups + restore test, structured logging, error tracking, crash reporting
+- [ ] Privacy-safe analytics events (§19), cost-per-active-user telemetry
+- [ ] Admin web portal (Next.js) on top of the moderation API; admin MFA
 
 ---
 
-## P2 - Enhancements (Post-Beta)
+## P1 — beta
 
-### Mobile Experience
-- [ ] **Continuous Scan Mode**
-  - [ ] Rapid multi-product scanning
-  - [ ] Background scan queue
-  - [ ] Scan history
+- [ ] Retailer adapter contract (§15) with health, circuit breaker, stale controls — first adapter only once a lawful source exists
+- [ ] Deal-confidence labels surfaced in the app; observed-usual-price display with data gaps
+- [ ] Notification delivery: dedupe, digest, quiet hours applied on send (preference logic exists in `shouldDeliver`)
+- [ ] Member-program preferences, multi-buy economics
+- [ ] Operational dashboard (stale retailers, notification failures, schema warnings)
 
-- [ ] **Rich Household Coordination**
-  - [ ] Shopping list sync improvements
-  - [ ] Purchase quantity tracking
-  - [ ] Retailer notes
-  - [ ] Activity timeline
-  - [ ] Ownership transfer
-  - [ ] Household leave/removal
+## P2 — post-beta
 
-- [ ] **Advanced Multi-Buy**
-  - [ ] Multi-buy rule support
-  - [ ] Unit price comparison
-  - [ ] Economic evaluation
+- [ ] Second retailer, radius controls, richer household coordination, product merge/split, signal diagnostics, TestFlight / closed-testing pipeline, international groundwork
 
-- [ ] **Radius Controls**
-  - [ ] Maximum distance for offers
-  - [ ] Store-specific preferences
-  - [ ] Location services (opt-in)
+---
 
-### Admin Tools
-- [ ] **Product Management**
-  - [ ] Product merge/split
-  - [ ] Barcode mapping
-  - [ ] Category management
-  - [ ] Liquor metadata review
-  - [ ] Retailer diagnostics
+## Known debt (tracked, not yet scheduled)
 
-- [ ] **Signal Diagnostics**
-  - [ ] Failed signal analysis
-  - [ ] False positive detection
-  - [ ] Rule tuning tools
-  - [ ] Baseline adjustment
-
-### Premium Features
-- [ ] **Member Program Integration**
-  - [ ] Membership eligibility check
-  - [ ] Member price comparison
-  - [ ] Membership rule support
-
-- [ ] **Advanced Analytics**
-  - [ ] Cost per active user
-  - [ ] Savings tracking
-  - [ ] Shopping behaviour insights
-
-- [ ] **TestFlight Pipeline**
-  - [ ] iOS TestFlight distribution
-  - [ ] Android closed testing
-  - [ ] Beta feedback collection
-  - [ ] Crash reporting
-
-### International (Future)
-- [ ] **Multi-Currency Support**
-- [ ] **International Retailers**
-- [ ] **Localisation**
+- Signal logic exists in three places: `backend/src/domain/signalEvaluator.js`, Dart `DemoBackend`, and `web/index.html`. Any semantic change must touch all three (ADR-0003). The 2026-10-04 clock-skew tolerance in `isFresh` is mirrored in the web copy; the Dart demo has no freshness gate at all (demo offers are always ingested "now").
+- Contract tests (`api.test.js`) run on SQLite through a translation layer; the Postgres integration test covers the critical path only.
+- `npm test` fails on this Windows machine because of a quoted `"node"` PATH entry (ADR-0006); run `node --experimental-vm-modules node_modules/jest/bin/jest.js` directly or fix the PATH.
 
 ---
 
 ## Definition of Done
 
-Each task is complete when:
-- [ ] Implementation is finished
-- [ ] Unit tests written and passing
-- [ ] Integration tests written and passing
-- [ ] Linting passes
-- [ ] Formatting is correct
-- [ ] Loading states implemented
-- [ ] Error states implemented
-- [ ] Privacy-safe telemetry added
-- [ ] Documentation updated
-- [ ] Regression tests added
-- [ ] Accessibility verified
-- [ ] Mobile: offline safety verified
-
----
-
-## Sprint Planning
-
-### Sprint 1 (Week 1-2): Foundation
-- Design system
-- Authentication
-- Database schema
-- Mobile shell
-- CI/CD setup
-
-### Sprint 2 (Week 3-4): Vertical Slice
-- Barcode scanning
-- Product resolution
-- Watchlist
-- Signal rules
-- Mock signal flow
-
-### Sprint 3 (Week 5-6): Retailers & History
-- Adapter framework
-- First retailer integration
-- Price history
-- Deal confidence
-
-### Sprint 4 (Week 7-8): Household & Polish
-- Household invites
-- Shared lists
-- Notification preferences
-- Accessibility
-- Dark mode polish
-
-### Sprint 5 (Week 9-10): Beta Prep
-- Unknown barcode submission
-- Mismatch reporting
-- Alcohol features
-- Admin dashboard
-- Security review
-
-### Sprint 6 (Week 11-12): Closed Beta
-- Testing pipeline
-- Cost measurement
-- Support tools
-- Backup restore exercise
-- Launch preparation
+Implementation · unit + integration tests · lint + format · loading and error states · privacy-safe telemetry · docs updated · regression tests · accessibility checked · mobile offline safety checked.

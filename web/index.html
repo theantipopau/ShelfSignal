@@ -426,7 +426,8 @@
   function isFresh(observedAt, now, { maxAgeHours = 48 } = {}) {
     if (!observedAt) return false;
     const ageMs = new Date(now).getTime() - new Date(observedAt).getTime();
-    if (Number.isNaN(ageMs) || ageMs < 0) return false;
+    // Tolerate small clock skew (mirrors backend signalEvaluator.isFresh); far-future stamps are anomalies.
+    if (Number.isNaN(ageMs) || ageMs < -5 * 60 * 1000) return false;
     return ageMs <= maxAgeHours * 60 * 60 * 1000;
   }
 

@@ -28,3 +28,6 @@ Thumbs.db
 .idea/
 *.iml
 .vscode/
+
+# Web sample verification harness output (web/verify.js)
+web/.verify/
