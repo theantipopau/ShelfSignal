@@ -135,6 +135,8 @@
     .status.error { background: color-mix(in srgb, var(--red) 22%, transparent); color: var(--red); }
     table.offers { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
     /* Wide tables scroll inside their card instead of dragging the page sideways. */
+    ul.plain { list-style: none; padding: 0; margin: 0.4rem 0 0; }
+    ul.plain li { padding: 0.35rem 0; border-top: 1px solid var(--border, rgba(128,128,128,.25)); }
     .table-scroll { overflow-x: auto; margin: 0 -0.35rem; padding: 0 0.35rem; }
     table.offers th, table.offers td { text-align: left; padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--border); }
     table.offers th { color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -712,9 +714,28 @@
    * Open Food Facts identity lookup (free, no key, CORS-friendly)
    * ================================================================= */
 
+  // Sibling Open *Facts databases share one API; try food first, then the rest
+  // so non-food barcodes (cosmetics, pet food, household) still resolve. All free + CORS-enabled.
+  const OFF_HOSTS = ['world.openfoodfacts.org', 'world.openbeautyfacts.org', 'world.openpetfoodfacts.org', 'world.openproductsfacts.org'];
+
   async function lookupOpenFoodFacts(barcode) {
-    const res = await fetch(`https://world.openfoodfacts.org/api/v3/product/${barcode}.json`);
-    if (!res.ok) throw new Error(`Open Food Facts returned ${res.status}`);
+    let firstError = null;
+    for (const host of OFF_HOSTS) {
+      try {
+        const found = await lookupOffHost(host, barcode);
+        if (found) return found;
+      } catch (err) {
+        firstError = firstError || err;
+      }
+    }
+    if (firstError) throw firstError; // every host failed → real outage, not "unknown product"
+    return null;
+  }
+
+  async function lookupOffHost(host, barcode) {
+    const res = await fetch(`https://${host}/api/v3/product/${barcode}.json`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`${host} returned ${res.status}`);
     const json = await res.json();
     // v3 responds {status:'success', product}; older payloads use numeric 1.
     if (!json.product || !(json.status === 1 || json.status === 'success')) return null;
@@ -723,6 +744,7 @@
     const abvMatch = quantity.match(/(\d+(?:\.\d+)?)\s*%?\s*(?:abv|alc\/vol)/i);
     return {
       source: 'open-food-facts',
+      source_host: host,
       canonical_name: p.product_name || 'Unknown product',
       brand: p.brands ? String(p.brands).split(',')[0].trim() : '',
       variant: p.varieties || '',
@@ -734,6 +756,25 @@
       verification_status: 'unverified',
       image_url: p.image_url || null,
     };
+  }
+
+  /* Open Prices (free, CORS-enabled): community-submitted AUD shelf prices with
+     photo proof. Shown separately from monitored offers — never feeds signals. */
+  async function fetchOpenPrices(barcode) {
+    const res = await fetch(`https://prices.openfoodfacts.org/api/v1/prices?product_code=${barcode}&currency=AUD&order_by=-date&size=5`);
+    if (!res.ok) throw new Error(`Open Prices returned ${res.status}`);
+    return (await res.json()).items || [];
+  }
+
+  function openPricesHtml(items) {
+    if (!items.length) {
+      return `<p class="muted small">No community-submitted Australian prices for this barcode on Open Prices yet.</p>`;
+    }
+    return `<ul class="plain">${items.map((i) => {
+      const loc = i.location || {};
+      const where = [loc.osm_brand || loc.osm_name, loc.osm_address_city].filter(Boolean).join(', ') || 'Unknown store';
+      return `<li><span class="price">${aud(i.price)}</span> · ${esc(where)} · <span class="muted">${esc(i.date)}</span></li>`;
+    }).join('')}</ul>`;
   }
 
   /* Live reachability probe for the Data sources panel: a real fetch from this
@@ -1551,11 +1592,20 @@
       ${lookupNote ? `<p class="muted small">${esc(lookupNote)}</p>` : ''}
       ${product.image_url ? `<img src="${esc(product.image_url)}" alt="Product photo from Open Food Facts" style="max-width:180px;border-radius:12px;margin-top:0.75rem"/>` : ''}
       ${offersHtml}
+      <div class="card mt" id="open-prices">
+        <h2>Community prices <span class="status unverified">Open Prices</span></h2>
+        <div id="open-prices-body"><div class="sk" style="height:.85rem;width:70%"></div></div>
+        <p class="muted small mt">Submitted by shoppers with photo proof, not monitored by ShelfSignal and never used for signals.</p>
+      </div>
       <div class="card mt" id="watch-card">
         <h2>${existing ? 'Signal rule' : 'Add to My Watchlist'}</h2>
         ${ruleFormHtml(existing)}
       </div>
       <p class="mt"><a class="btn ghost" href="#/scan">← Back to scan</a></p>`;
+
+    fetchOpenPrices(barcode)
+      .then((items) => { const b = $('#open-prices-body'); if (b) b.innerHTML = openPricesHtml(items); })
+      .catch(() => { const b = $('#open-prices-body'); if (b) b.innerHTML = '<p class="muted small">Open Prices unreachable right now.</p>'; });
 
     wireRuleForm(barcode, existing);
   }
