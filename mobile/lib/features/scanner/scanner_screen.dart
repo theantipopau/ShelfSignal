@@ -294,6 +294,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               onReport: isDemo
                   ? null
                   : () => showReportMismatchDialog(context, ref, _result!.product!.id),
+              onDetails: isDemo
+                  ? null
+                  : () => context.push('/product/${_result!.product!.id}'),
             ),
           ],
           if (_result != null) ...[
@@ -516,12 +519,14 @@ class _FoundProductCard extends StatelessWidget {
     required this.onWatch,
     this.onSimulate,
     this.onReport,
+    this.onDetails,
   });
 
   final SsProduct product;
   final VoidCallback onWatch;
   final VoidCallback? onSimulate;
   final VoidCallback? onReport;
+  final VoidCallback? onDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -571,14 +576,22 @@ class _FoundProductCard extends StatelessWidget {
                 ],
               ],
             ),
-            if (onReport != null)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: onReport,
-                  icon: const Icon(Icons.flag_outlined, size: 18),
-                  label: const Text('Report a mismatch'),
-                ),
+            if (onDetails != null || onReport != null)
+              Row(
+                children: [
+                  if (onDetails != null)
+                    TextButton.icon(
+                      onPressed: onDetails,
+                      icon: const Icon(Icons.info_outline, size: 18),
+                      label: const Text('Details'),
+                    ),
+                  if (onReport != null)
+                    TextButton.icon(
+                      onPressed: onReport,
+                      icon: const Icon(Icons.flag_outlined, size: 18),
+                      label: const Text('Report a mismatch'),
+                    ),
+                ],
               ),
           ],
         ),

@@ -143,6 +143,24 @@ class Repository {
         if (note != null && note.isNotEmpty) 'note': note,
       });
 
+  /// Canonical product by id (GET /api/products/:id). Live mode only: demo products come from fixtures.
+  Future<SsProduct> getProduct(String id) async {
+    final data = await _api.get('/api/products/$id');
+    if (data == null) throw ApiException('Product not found');
+    final barcodes = (data['barcodes'] as List<dynamic>? ?? const []);
+    return SsProduct.fromJson({
+      ...data,
+      'barcode': barcodes.isEmpty ? null : (barcodes.first as Map<String, dynamic>)['barcode'],
+    });
+  }
+
+  /// Everything the server holds about the signed-in user (GET /api/auth/export, spec 17).
+  Future<Map<String, dynamic>> exportData() async {
+    final data = await _api.get('/api/auth/export');
+    if (data == null) throw ApiException('Export is only available in live mode');
+    return data;
+  }
+
   Future<List<SsProduct>> searchProducts(String query) async {
     if (isDemo) {
       final q = query.toLowerCase();

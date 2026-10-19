@@ -5,6 +5,7 @@ import '../features/auth/sign_up_screen.dart';
 import '../features/home/home_shell.dart';
 import '../features/home/signals_tab.dart';
 import '../features/household/household_screen.dart';
+import '../features/privacy/data_export_screen.dart';
 import '../features/notifications/notification_prefs_screen.dart';
 import '../features/products/product_detail_screen.dart';
 import '../features/profile/profile_tab.dart';
@@ -58,6 +59,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/household',
       builder: (context, state) => const HouseholdScreen(),
+    ),
+    GoRoute(
+      path: '/data-export',
+      builder: (context, state) => const DataExportScreen(),
     ),
     GoRoute(
       path: '/notifications',

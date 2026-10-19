@@ -7,6 +7,8 @@ import 'package:shelfsignal/core/models.dart';
 import 'package:shelfsignal/core/repository.dart';
 import 'package:shelfsignal/features/notifications/notification_prefs_screen.dart';
 import 'package:shelfsignal/features/shopping/shopping_list_screen.dart';
+import 'package:shelfsignal/features/privacy/data_export_screen.dart';
+import 'package:shelfsignal/features/products/product_detail_screen.dart';
 
 /// Live-mode repository stub: records writes, serves canned reads.
 class _LiveRepository extends Repository {
@@ -33,6 +35,26 @@ class _LiveRepository extends Repository {
 
   @override
   Future<List<ShoppingItem>> listShoppingItems() async => items;
+
+  @override
+  Future<Map<String, dynamic>> exportData() async => {
+        'watch_items': [{}, {}],
+        'signals': <Object>[],
+        'notification_preferences': null,
+        'household': null,
+      };
+
+  @override
+  Future<SsProduct> getProduct(String id) async => SsProduct(
+        id: id,
+        name: 'Vegemite',
+        brand: 'Kraft',
+        category: 'grocery',
+        netQuantity: 380,
+        unit: 'g',
+        verificationStatus: 'verified',
+        barcode: '9310072011097',
+      );
 
   @override
   Future<void> setShoppingItemDone(String id, bool done) async {
@@ -108,6 +130,18 @@ void main() {
   });
 
   group('live mode', () {
+    testWidgets('data export shows per-section counts', (tester) async {
+      await _pump(tester, const DataExportScreen(), _LiveRepository());
+      expect(find.text('Watchlist items'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget); // two watch items
+    });
+
+    testWidgets('product detail loads the product by id and offers a mismatch report', (tester) async {
+      await _pump(tester, const ProductDetailScreen(productId: 'p1'), _LiveRepository());
+      expect(find.text('Kraft Vegemite'), findsOneWidget);
+      expect(find.text('Report a mismatch'), findsOneWidget);
+    });
+
     testWidgets('toggling digest saves only that field', (tester) async {
       final repo = _LiveRepository();
       await _pump(tester, const NotificationPrefsScreen(), repo);

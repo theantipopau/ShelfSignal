@@ -6,6 +6,8 @@ import '../../core/models.dart';
 import '../../core/repository.dart';
 import '../../core/theme.dart';
 import '../providers.dart';
+import 'enrichment_section.dart';
+import 'report_mismatch_dialog.dart';
 
 /// Product detail: exact identity, verification status and watch action.
 /// (Price history chart arrives with Phase 3 — retailer adapters.)
@@ -42,6 +44,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             .where((p) => p.id == widget.productId)
             .toList();
         if (matches.isNotEmpty) product = matches.first;
+      } else {
+        product = await repo.getProduct(widget.productId);
       }
       if (!mounted) return;
       setState(() {
@@ -74,6 +78,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final product = _product;
+    final repo = ref.read(repositoryProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Product')),
@@ -130,6 +135,16 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         ),
                       ),
                     const SizedBox(height: SsSpacing.l),
+                    if (product.barcode != null)
+                      EnrichmentSection(barcode: product.barcode!),
+                    const SizedBox(height: SsSpacing.l),
+                    if (!repo.isDemo)
+                      OutlinedButton.icon(
+                        onPressed: () => showReportMismatchDialog(context, ref, product.id),
+                        icon: const Icon(Icons.flag_outlined),
+                        label: const Text('Report a mismatch'),
+                      ),
+                    const SizedBox(height: SsSpacing.s),
                     FilledButton.icon(
                       onPressed: _watching ? null : _watch,
                       icon: const Icon(Icons.visibility),

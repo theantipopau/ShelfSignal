@@ -64,6 +64,13 @@ The app starts in **demo mode** (clearly labelled) using the same fixtures as
 the backend seed. To go live: run the backend, then set the API base URL in
 Profile → and toggle demo mode off.
 
+In live mode the app also has: the shopping list (private or shared with your
+household), household create / invite / join / leave, notification preferences,
+a mismatch report on any product, a product page by ID, the product photo and
+community prices from free public sources (Open Food Facts, Open Prices), and
+**Profile → Your data** to view and copy your personal data export. Demo mode
+shows a "needs a live account" notice on the live-only screens.
+
 ### Camera scanning
 
 The Scan tab uses the device camera (mobile_scanner) for EAN-8, UPC-A/UPC-E
@@ -90,6 +97,18 @@ spec §9.11 control, category/retailer mute chips and a live delivery dry-run) a
 transfer, and watch items you can share or keep private). `node web/verify.js`
 re-checks all of it headless: 14 routes for JS errors and viewport overflow, plus
 scripted share / preferences / theme flows.
+
+## Status
+
+| Area | State |
+|---|---|
+| Barcode scan, identity, watchlist, rules, signals | Working in demo and live mode |
+| Price data | **Blocked on a lawful price source** — see the backlog's "Data & trust" section |
+| Product photo and community prices | Live mode, from free public APIs |
+| Households, shopping list, notification preferences, mismatch reports, data export | Live mode |
+| Offline cache, Continuous Scan, push notifications, Apple/Google sign-in | Not built |
+
+Current counts and open work live in [Docs/implementation-backlog.md](Docs/implementation-backlog.md).
 
 ## Documentation
 

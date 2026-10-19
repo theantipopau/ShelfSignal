@@ -6,6 +6,14 @@
 - **Flutter:** the scan result shows the product photo, community prices (up to five, with store and date) and, for barcodes not in our catalogue, the Open Food Facts name and brand, labelled unverified. Demo mode makes no network calls and says so.
 - **Tests:** backend 163 → **166**; mobile 10 → **17**.
 
+## 2026-10-19 — Product page, data export, README refresh (Flutter)
+
+- **Product page by ID** in live mode (`GET /api/products/:id`); the scan result has a Details button that opens it. Demo mode is unchanged.
+- **Your data** (`/data-export`): per-section counts of what the server holds, and copy-JSON of the full export (`GET /api/auth/export`).
+- Product page shows the photo and community prices, and has a "Report a mismatch" action.
+- README: live-mode feature list and a status table. Backlog, assessment and changelog counts updated.
+- **Tests:** mobile 24 → **26**.
+
 ## 2026-10-19 — Live-mode screens (Flutter)
 
 - **Shopping list** (`/shopping-list`): add (optionally shared with the household), tick off, delete. Non-owners who try to delete see the server's refusal.

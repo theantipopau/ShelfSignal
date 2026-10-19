@@ -78,6 +78,16 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: SsSpacing.m),
           Card(
             child: ListTile(
+              leading: const Icon(Icons.download_outlined),
+              title: const Text('Your data'),
+              subtitle: const Text('See and copy everything we hold about you'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/data-export'),
+            ),
+          ),
+          const SizedBox(height: SsSpacing.m),
+          Card(
+            child: ListTile(
               leading: const Icon(Icons.delete_outline, color: SsColors.errorRed),
               title: const Text('Delete account',
                   style: TextStyle(color: SsColors.errorRed)),
