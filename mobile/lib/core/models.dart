@@ -329,3 +329,139 @@ class ProductEnrichment {
               ],
       );
 }
+
+/// A shopping list item (GET /api/shopping-list). `shared` means it is visible to the household.
+class ShoppingItem {
+  final String id;
+  final String title;
+  final int quantity;
+  final String status; // open | done
+  final String? barcode;
+  final String? ownerUserId;
+  final bool shared;
+
+  const ShoppingItem({
+    required this.id,
+    required this.title,
+    required this.quantity,
+    required this.status,
+    this.barcode,
+    this.ownerUserId,
+    this.shared = false,
+  });
+
+  bool get isDone => status == 'done';
+
+  factory ShoppingItem.fromJson(Map<String, dynamic> j) => ShoppingItem(
+        id: j['id'] as String,
+        title: (j['title'] ?? '') as String,
+        quantity: (j['quantity'] as num?)?.toInt() ?? 1,
+        status: (j['status'] ?? 'open') as String,
+        barcode: j['barcode'] as String?,
+        ownerUserId: j['owner_user_id'] as String?,
+        shared: j['household_id'] != null,
+      );
+}
+
+class HouseholdMember {
+  final String userId;
+  final String role; // owner | member
+  final String email;
+  final String? displayName;
+
+  const HouseholdMember({required this.userId, required this.role, required this.email, this.displayName});
+
+  factory HouseholdMember.fromJson(Map<String, dynamic> j) => HouseholdMember(
+        userId: j['user_id'] as String,
+        role: (j['role'] ?? 'member') as String,
+        email: (j['email'] ?? '') as String,
+        displayName: j['display_name'] as String?,
+      );
+}
+
+class HouseholdInvite {
+  final String id;
+  final String? inviteeEmail;
+  final DateTime expiresAt;
+
+  const HouseholdInvite({required this.id, this.inviteeEmail, required this.expiresAt});
+
+  factory HouseholdInvite.fromJson(Map<String, dynamic> j) => HouseholdInvite(
+        id: j['id'] as String,
+        inviteeEmail: j['invitee_email'] as String?,
+        expiresAt: DateTime.parse(j['expires_at'] as String),
+      );
+}
+
+/// A household the user belongs to. `members` and `invites` are only filled by the detail call.
+class Household {
+  final String id;
+  final String name;
+  final String role; // owner | member
+  final int memberCount;
+  final List<HouseholdMember> members;
+  final List<HouseholdInvite> invites;
+
+  const Household({
+    required this.id,
+    required this.name,
+    required this.role,
+    this.memberCount = 0,
+    this.members = const [],
+    this.invites = const [],
+  });
+
+  bool get isOwner => role == 'owner';
+
+  factory Household.fromJson(Map<String, dynamic> j) => Household(
+        id: j['id'] as String,
+        name: (j['name'] ?? 'Household') as String,
+        role: (j['role'] ?? 'member') as String,
+        memberCount: (j['member_count'] as num?)?.toInt() ?? (j['members'] as List?)?.length ?? 0,
+        members: [
+          for (final m in (j['members'] as List<dynamic>? ?? const []))
+            HouseholdMember.fromJson(m as Map<String, dynamic>),
+        ],
+        invites: [
+          for (final i in (j['invites'] as List<dynamic>? ?? const []))
+            HouseholdInvite.fromJson(i as Map<String, dynamic>),
+        ],
+      );
+}
+
+/// Notification preferences (GET/PATCH /api/notifications/preferences).
+class NotificationPrefs {
+  final bool globalEnabled;
+  final bool quietHoursEnabled;
+  final String quietHoursStart;
+  final String quietHoursEnd;
+  final bool digestMode;
+  final int cooldownHours;
+  final bool householdActivityEnabled;
+  final bool immediateHighValueEnabled;
+  final bool alcoholAlertsEnabled;
+
+  const NotificationPrefs({
+    this.globalEnabled = true,
+    this.quietHoursEnabled = false,
+    this.quietHoursStart = '22:00',
+    this.quietHoursEnd = '07:00',
+    this.digestMode = false,
+    this.cooldownHours = 24,
+    this.householdActivityEnabled = true,
+    this.immediateHighValueEnabled = true,
+    this.alcoholAlertsEnabled = true,
+  });
+
+  factory NotificationPrefs.fromJson(Map<String, dynamic> j) => NotificationPrefs(
+        globalEnabled: j['global_enabled'] as bool? ?? true,
+        quietHoursEnabled: j['quiet_hours_enabled'] as bool? ?? false,
+        quietHoursStart: (j['quiet_hours_start'] ?? '22:00') as String,
+        quietHoursEnd: (j['quiet_hours_end'] ?? '07:00') as String,
+        digestMode: j['digest_mode'] as bool? ?? false,
+        cooldownHours: (j['per_product_cooldown_hours'] as num?)?.toInt() ?? 24,
+        householdActivityEnabled: j['household_activity_enabled'] as bool? ?? true,
+        immediateHighValueEnabled: j['immediate_high_value_enabled'] as bool? ?? true,
+        alcoholAlertsEnabled: j['alcohol_alerts_enabled'] as bool? ?? true,
+      );
+}

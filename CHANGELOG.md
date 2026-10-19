@@ -6,6 +6,15 @@
 - **Flutter:** the scan result shows the product photo, community prices (up to five, with store and date) and, for barcodes not in our catalogue, the Open Food Facts name and brand, labelled unverified. Demo mode makes no network calls and says so.
 - **Tests:** backend 163 → **166**; mobile 10 → **17**.
 
+## 2026-10-19 — Live-mode screens (Flutter)
+
+- **Shopping list** (`/shopping-list`): add (optionally shared with the household), tick off, delete. Non-owners who try to delete see the server's refusal.
+- **Household** (`/household`): create, join with an invite code, members, owner invites (code shown once, copy button) with revoke, leave or remove.
+- **Notification preferences** (`/notifications`): every switch, quiet-hours times, cooldown. Each change saves straight away.
+- **Report a mismatch** on the scan result: kind plus optional note, sent to `POST /api/products/:id/reports`.
+- Profile links to all three. Demo mode shows a "needs a live account" notice on each (no network calls).
+- **Tests:** mobile 17 → **24**.
+
 ## 2026-10-04 — Review fixes: trust, correctness, CI, then moderation and shopping list
 
 Driven by a full review of the spec, docs and code (see Docs/repository-assessment.md).

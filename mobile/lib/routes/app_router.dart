@@ -4,9 +4,12 @@ import '../features/auth/sign_in_screen.dart';
 import '../features/auth/sign_up_screen.dart';
 import '../features/home/home_shell.dart';
 import '../features/home/signals_tab.dart';
+import '../features/household/household_screen.dart';
+import '../features/notifications/notification_prefs_screen.dart';
 import '../features/products/product_detail_screen.dart';
 import '../features/profile/profile_tab.dart';
 import '../features/scanner/scanner_screen.dart';
+import '../features/shopping/shopping_list_screen.dart';
 import '../features/watchlist/screens/rule_editor_screen.dart';
 import '../features/watchlist/screens/watchlist_tab.dart';
 
@@ -47,6 +50,18 @@ final appRouter = GoRouter(
       builder: (context, state) => ProductDetailScreen(
         productId: state.pathParameters['id']!,
       ),
+    ),
+    GoRoute(
+      path: '/shopping-list',
+      builder: (context, state) => const ShoppingListScreen(),
+    ),
+    GoRoute(
+      path: '/household',
+      builder: (context, state) => const HouseholdScreen(),
+    ),
+    GoRoute(
+      path: '/notifications',
+      builder: (context, state) => const NotificationPrefsScreen(),
     ),
     GoRoute(
       path: '/watchlist/:id/rule',

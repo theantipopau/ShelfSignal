@@ -87,6 +87,62 @@ class Repository {
     return data == null ? null : ProductEnrichment.fromJson(data);
   }
 
+  // ---- Live-only features: shopping list, preferences, households, reports --
+  // No demo fixtures exist for these. Screens check isDemo first and show a
+  // notice instead of calling in, so these methods assume a live API.
+  Future<List<ShoppingItem>> listShoppingItems() async {
+    final rows = await _api.getList('/api/shopping-list?status=open');
+    return rows.map((r) => ShoppingItem.fromJson(r as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> addShoppingItem(String title, {int quantity = 1, bool shared = false}) =>
+      _api.post('/api/shopping-list', {'title': title, 'quantity': quantity, 'shared': shared});
+
+  Future<void> setShoppingItemDone(String id, bool done) =>
+      _api.patch('/api/shopping-list/$id', {'status': done ? 'done' : 'open'});
+
+  Future<void> deleteShoppingItem(String id) => _api.delete('/api/shopping-list/$id');
+
+  Future<NotificationPrefs> getNotificationPrefs() async =>
+      NotificationPrefs.fromJson((await _api.get('/api/notifications/preferences')) ?? {});
+
+  Future<NotificationPrefs> updateNotificationPrefs(Map<String, dynamic> patch) async =>
+      NotificationPrefs.fromJson((await _api.patch('/api/notifications/preferences', patch)) ?? {});
+
+  Future<List<Household>> listHouseholds() async {
+    final rows = await _api.getList('/api/households');
+    return rows.map((r) => Household.fromJson(r as Map<String, dynamic>)).toList();
+  }
+
+  Future<Household> getHousehold(String id) async =>
+      Household.fromJson((await _api.get('/api/households/$id'))!);
+
+  Future<void> createHousehold(String name) => _api.post('/api/households', {'name': name});
+
+  /// Returns the invite token. The server shows it once and never stores it.
+  Future<String> createInvite(String householdId, {String? email}) async {
+    final data = await _api.post('/api/households/$householdId/invites', {
+      if (email != null && email.isNotEmpty) 'email': email,
+    });
+    return data!['token'] as String;
+  }
+
+  Future<void> acceptInvite(String token) => _api.post('/api/households/invites/accept', {'token': token});
+
+  /// Owners remove others; any member can pass their own userId to leave.
+  Future<void> removeMember(String householdId, String userId) =>
+      _api.delete('/api/households/$householdId/members/$userId');
+
+  Future<void> revokeInvite(String householdId, String inviteId) =>
+      _api.delete('/api/households/$householdId/invites/$inviteId');
+
+  /// kind: mismatch | wrong_details | other (spec 9.8).
+  Future<void> reportProduct(String productId, {String kind = 'mismatch', String? note}) =>
+      _api.post('/api/products/$productId/reports', {
+        'kind': kind,
+        if (note != null && note.isNotEmpty) 'note': note,
+      });
+
   Future<List<SsProduct>> searchProducts(String query) async {
     if (isDemo) {
       final q = query.toLowerCase();

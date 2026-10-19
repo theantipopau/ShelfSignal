@@ -18,7 +18,7 @@ Legend: `[x]` done and tested · `[~]` partly done (note says what is missing) �
 | 4 Household & premium UX | Backend and web sample done. **Flutter screens for households, notification preferences, shopping list and reports are not built.** |
 | 5 Closed beta | Not started (no deployment, backups, push, store pipeline). |
 
-Quality gates today: backend 166 tests (154 contract + 12 real-Postgres integration) (PGlite locally, Postgres 16 service in CI), `eslint` clean, `npm audit` 0 high, gitleaks in CI; mobile `flutter analyze` clean + 17 tests.
+Quality gates today: backend 166 tests (154 contract + 12 real-Postgres integration) (PGlite locally, Postgres 16 service in CI), `eslint` clean, `npm audit` 0 high, gitleaks in CI; mobile `flutter analyze` clean + 24 tests.
 
 ---
 
@@ -58,7 +58,8 @@ Quality gates today: backend 166 tests (154 contract + 12 real-Postgres integrat
 - [x] Camera scanning with opt-in permission timing, GS1 gate, haptics, duplicate suppression, torch, manual fallback
 - [x] Session token in platform secure storage (legacy plain-prefs token migrated)
 - [x] Scan result shows the product photo and community prices (live mode; demo makes no network calls)
-- [ ] Live-mode screens: households, notification preferences, shopping list, report mismatch, data export, admin tools
+- [x] Live-mode screens: households (create, invite code, join, members, leave/remove, revoke), notification preferences, shopping list, report mismatch
+- [ ] Live-mode screens still missing: data export, admin tools, muted categories/retailers editor, muted-state on the shopping list for non-owners
 - [ ] Continuous Scan mode, offline scan queue, Drift local-first cache + sync
 - [ ] Price-history chart, signal card parity with spec §9.8 actions (add to list, change rule, report mismatch)
 - [ ] Onboarding flow (§9.2), alcohol opt-in, accessibility audit (TalkBack / VoiceOver, large text)

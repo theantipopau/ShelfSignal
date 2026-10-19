@@ -31,18 +31,25 @@ class ProfileScreen extends ConsumerWidget {
             child: Column(
               children: [
                 ListTile(
+                  leading: const Icon(Icons.shopping_basket_outlined),
+                  title: const Text('Shopping list'),
+                  subtitle: const Text('Private, or shared with your household'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/shopping-list'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.group_outlined),
+                  title: const Text('Household'),
+                  subtitle: const Text('Share your watchlist and list'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/household'),
+                ),
+                ListTile(
                   leading: const Icon(Icons.tune),
                   title: const Text('Notification preferences'),
                   subtitle: const Text('Quiet hours, digests, cooldowns'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                            'Notification preferences arrive with the push pipeline.'),
-                      ),
-                    );
-                  },
+                  onTap: () => context.push('/notifications'),
                 ),
                 ListTile(
                   leading: const Icon(Icons.local_bar_outlined),

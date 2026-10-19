@@ -11,6 +11,7 @@ import '../../core/models.dart';
 import '../../core/repository.dart';
 import '../../core/theme.dart';
 import '../products/enrichment_section.dart';
+import '../products/report_mismatch_dialog.dart';
 import '../providers.dart';
 
 /// How long the same camera code is suppressed after a read (spec 9.3
@@ -290,6 +291,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               product: _result!.product!,
               onWatch: _watchFound,
               onSimulate: isDemo ? _simulateDeal : null,
+              onReport: isDemo
+                  ? null
+                  : () => showReportMismatchDialog(context, ref, _result!.product!.id),
             ),
           ],
           if (_result != null) ...[
@@ -511,11 +515,13 @@ class _FoundProductCard extends StatelessWidget {
     required this.product,
     required this.onWatch,
     this.onSimulate,
+    this.onReport,
   });
 
   final SsProduct product;
   final VoidCallback onWatch;
   final VoidCallback? onSimulate;
+  final VoidCallback? onReport;
 
   @override
   Widget build(BuildContext context) {
@@ -565,6 +571,15 @@ class _FoundProductCard extends StatelessWidget {
                 ],
               ],
             ),
+            if (onReport != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: onReport,
+                  icon: const Icon(Icons.flag_outlined, size: 18),
+                  label: const Text('Report a mismatch'),
+                ),
+              ),
           ],
         ),
       ),
