@@ -57,7 +57,7 @@ ShelfSignal is a well-engineered vertical slice with a sound, tested signal engi
 
 ## Success metrics (Phase 1) — status
 
-- [x] Repository builds on Windows (tests run via node directly; `npm` scripts hit the PATH issue in ADR-0006)
+- [x] Repository builds and tests pass on Windows (`npm test` re-verified 2026-10-19; the PATH issue in ADR-0006 no longer reproduces)
 - [x] CI runs lint, tests, Postgres integration, audit and secret scan
 - [~] Authentication: email works; Apple and Google not built
 - [x] PostgreSQL migrations apply and are idempotent

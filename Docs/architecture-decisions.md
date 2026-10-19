@@ -86,6 +86,8 @@ $N params). Real-PostgreSQL integration remains a staging task.
 **Consequences:** `npm test` is hermetic and dependency-free; the translation
 layer must keep pace with new SQL constructs (documented in the test header).
 
+**Update (2026-10-19):** the Windows PATH entry no longer breaks `npm test`; the script runs jest through `node` directly and passes (166 tests). The hermetic `node:sqlite` decision stands.
+
 **Update (2026-10-04):** partly superseded by ADR-0008 — the critical path is now
 also exercised on real PostgreSQL semantics.
 

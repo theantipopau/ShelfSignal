@@ -94,7 +94,7 @@ Quality gates today: backend 166 tests (154 contract + 12 real-Postgres integrat
 
 - Signal logic exists in three places: `backend/src/domain/signalEvaluator.js`, Dart `DemoBackend`, and `web/index.html`. Any semantic change must touch all three (ADR-0003). The 2026-10-04 clock-skew tolerance in `isFresh` is mirrored in the web copy; the Dart demo has no freshness gate at all (demo offers are always ingested "now").
 - Contract tests (`api.test.js`) run on SQLite through a translation layer; the Postgres integration test covers the critical path only.
-- `npm test` fails on this Windows machine because of a quoted `"node"` PATH entry (ADR-0006); run `node --experimental-vm-modules node_modules/jest/bin/jest.js` directly or fix the PATH.
+- `npm test` passes on the Windows dev machine as of 2026-10-19 (re-verified, 166 tests). The earlier quoted-`"node"` PATH failure (ADR-0006) no longer reproduces; if it returns, run `node --experimental-vm-modules node_modules/jest/bin/jest.js` directly.
 
 ---
 
