@@ -1,5 +1,11 @@
 # ShelfSignal — Rolling Changelog
 
+## 2026-10-19 — Free enrichment in the app
+
+- **Backend:** `GET /api/products/enrichment/:barcode` (authenticated) returns the Open Food Facts identity, including the product photo, and Open Prices AUD community prices. Sources that fail return `null`, not an error. Results are cached in-process for 10 minutes.
+- **Flutter:** the scan result shows the product photo, community prices (up to five, with store and date) and, for barcodes not in our catalogue, the Open Food Facts name and brand, labelled unverified. Demo mode makes no network calls and says so.
+- **Tests:** backend 163 → **166**; mobile 10 → **17**.
+
 ## 2026-10-04 — Review fixes: trust, correctness, CI, then moderation and shopping list
 
 Driven by a full review of the spec, docs and code (see Docs/repository-assessment.md).

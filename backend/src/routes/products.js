@@ -90,6 +90,18 @@ router.get('/scan-history', authenticateToken, async (req, res, next) => {
   }
 });
 
+/**
+ * GET /api/products/enrichment/:barcode — free identity photo + community prices
+ * (Open Food Facts, Open Prices). Authenticated so the upstream calls aren't an open proxy.
+ */
+router.get('/enrichment/:barcode', authenticateToken, async (req, res, next) => {
+  try {
+    res.json({ success: true, data: await productService.enrichBarcode(req.params.barcode) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 /** GET /api/products/:id — canonical product with its barcodes. */
 router.get('/:id', async (req, res, next) => {
   try {

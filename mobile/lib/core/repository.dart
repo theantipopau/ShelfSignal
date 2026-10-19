@@ -80,6 +80,13 @@ class Repository {
     );
   }
 
+  /// Photo + community prices for a barcode. Demo mode makes no network calls.
+  Future<ProductEnrichment?> enrichBarcode(String barcode) async {
+    if (isDemo) return null;
+    final data = await _api.get('/api/products/enrichment/$barcode');
+    return data == null ? null : ProductEnrichment.fromJson(data);
+  }
+
   Future<List<SsProduct>> searchProducts(String query) async {
     if (isDemo) {
       final q = query.toLowerCase();

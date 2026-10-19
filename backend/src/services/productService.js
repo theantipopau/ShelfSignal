@@ -4,6 +4,7 @@ const db = require('../config/database');
 const { NotFoundError, ValidationError } = require('../utils/errorHandler');
 const { validateBarcode } = require('../utils/barcode');
 const openFoodFacts = require('./openFoodFactsClient');
+const openPrices = require('./openPricesClient');
 
 /**
  * Canonical product catalogue + barcode resolution.
@@ -42,6 +43,36 @@ async function resolveBarcode(rawBarcode, { lookupExternal = false } = {}) {
   }
 
   return { found: true, barcode, barcodeType: check.type, product: rows[0] };
+}
+
+// ponytail: per-process 10-minute cache; move to a shared store if we run more than one instance.
+const ENRICH_TTL_MS = 10 * 60 * 1000;
+const enrichmentCache = new Map();
+
+/**
+ * Free, public enrichment for a barcode: Open Food Facts identity (name, brand,
+ * photo) plus Open Prices community prices. Both are optional — a null field
+ * means that source is unavailable or has no data, never an error.
+ */
+async function enrichBarcode(rawBarcode) {
+  const check = validateBarcode(rawBarcode);
+  if (!check.valid) throw new ValidationError(`Invalid barcode: ${check.reason}`);
+  const barcode = check.normalized;
+
+  const hit = enrichmentCache.get(barcode);
+  if (hit && hit.expiresAt > Date.now()) return hit.value;
+
+  const [identity, prices] = await Promise.all([
+    openFoodFacts.fetchIdentity(barcode),
+    openPrices.fetchPricesForProductCode(barcode),
+  ]);
+  const value = {
+    barcode,
+    identity: identity ? { ...identity, sourceUrl: undefined } : null,
+    communityPrices: prices,
+  };
+  enrichmentCache.set(barcode, { value, expiresAt: Date.now() + ENRICH_TTL_MS });
+  return value;
 }
 
 async function getProduct(productId) {
@@ -168,6 +199,7 @@ module.exports = {
   getProduct,
   searchProducts,
   submitUnknownBarcode,
+  enrichBarcode,
   recordObservation,
   recordScan,
   getScanHistory,

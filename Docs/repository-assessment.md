@@ -11,10 +11,10 @@ ShelfSignal is a well-engineered vertical slice with a sound, tested signal engi
 
 | Area | State | Evidence |
 |---|---|---|
-| Backend API (Express + Postgres) | Strong. Auth, products, watchlist, signals, households, notification prefs, shopping list, reports, moderation, audit, export. | 163 tests (151 contract + 12 real-Postgres), lint clean, `npm audit` 0 high |
+| Backend API (Express + Postgres) | Strong. Auth, products, watchlist, signals, households, notification prefs, shopping list, reports, moderation, audit, export. | 166 tests (154 contract + 12 real-Postgres), lint clean, `npm audit` 0 high |
 | Database | Migrations 001–005, validated on real Postgres semantics (PGlite locally, Postgres 16 service in CI) | `tests/postgres.integration.test.js` |
 | Signal engine | Pure module, mirrored in Dart demo and web sample; freshness gate tolerates clock skew | `signalEvaluator.test.js` |
-| Mobile (Flutter) | Shell, theme, demo mode, camera scanning, secure token storage. **No live-mode screens for households / notification prefs / shopping list / reports; no offline cache.** | `flutter analyze` clean, 10 tests |
+| Mobile (Flutter) | Shell, theme, demo mode, camera scanning, secure token storage. **No live-mode screens for households / notification prefs / shopping list / reports; no offline cache.** | `flutter analyze` clean, 17 tests |
 | Web sample | Self-contained demo with a headless verification harness | `web/verify.js` |
 | Admin portal | API only (`/api/admin/*`); no UI | `moderationService.js` |
 | Auth | Email + password, 7-day JWT. No refresh rotation, no Apple/Google, no password reset | — |

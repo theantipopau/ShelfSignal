@@ -1577,3 +1577,58 @@ describe('alcohol requires adult confirmation (spec 9.12)', () => {
     expect(minorId).toBeTruthy();
   });
 });
+
+describe('enrichment: identity photo + community prices (free APIs)', () => {
+  const openFoodFacts = require('../src/services/openFoodFactsClient');
+  const openPrices = require('../src/services/openPricesClient');
+
+  afterAll(() => {
+    openFoodFacts.reset();
+    openPrices.reset();
+  });
+
+  it('returns the Open Food Facts photo and Open Prices items, and requires auth', async () => {
+    openFoodFacts.configure({
+      enabled: true,
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ status: 'success', product: { product_name: 'Vegemite', brands: 'Kraft', image_url: 'https://images.example/vegemite.jpg' } }),
+      }),
+    });
+    openPrices.configure({
+      enabled: true,
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ items: [{ id: 42, price: 5.5, currency: 'AUD', date: '2026-09-01', location: { osm_brand: 'Woolworths', osm_address_country_code: 'AU' } }] }),
+      }),
+    });
+
+    const barcode = '9310072011097';
+    const unauth = await request(app).get(`/api/products/enrichment/${barcode}`);
+    expect(unauth.status).toBe(401);
+
+    const res = await authed(request(app).get(`/api/products/enrichment/${barcode}`));
+    expect(res.status).toBe(200);
+    expect(res.body.data.identity.canonical_name).toBe('Vegemite');
+    expect(res.body.data.identity.image_url).toBe('https://images.example/vegemite.jpg');
+    expect(res.body.data.communityPrices).toHaveLength(1);
+    expect(res.body.data.communityPrices[0]).toMatchObject({ price: 5.5, currency: 'AUD' });
+  });
+
+  it('reports unavailable sources as null rather than failing', async () => {
+    openFoodFacts.reset();
+    openPrices.reset();
+    // Different barcode: the first test's result is cached for 10 minutes.
+    const res = await authed(request(app).get('/api/products/enrichment/9310640020223'));
+    expect(res.status).toBe(200);
+    expect(res.body.data.identity).toBeNull();
+    expect(res.body.data.communityPrices).toBeNull();
+  });
+
+  it('rejects invalid barcodes', async () => {
+    const res = await authed(request(app).get('/api/products/enrichment/123'));
+    expect(res.status).toBe(400);
+  });
+});

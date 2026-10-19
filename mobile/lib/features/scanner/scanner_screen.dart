@@ -10,6 +10,7 @@ import '../../core/demo_backend.dart';
 import '../../core/models.dart';
 import '../../core/repository.dart';
 import '../../core/theme.dart';
+import '../products/enrichment_section.dart';
 import '../providers.dart';
 
 /// How long the same camera code is suppressed after a read (spec 9.3
@@ -289,6 +290,14 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               product: _result!.product!,
               onWatch: _watchFound,
               onSimulate: isDemo ? _simulateDeal : null,
+            ),
+          ],
+          if (_result != null) ...[
+            const SizedBox(height: SsSpacing.m),
+            EnrichmentSection(
+              key: ValueKey(_result!.barcode),
+              barcode: _result!.barcode,
+              showIdentity: !_result!.found,
             ),
           ],
         ],

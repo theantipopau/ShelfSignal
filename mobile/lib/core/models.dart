@@ -258,3 +258,74 @@ class BarcodeResolution {
     this.product,
   });
 }
+
+/// Open Food Facts identity for a barcode (free, ODbL). Photo is CC BY-SA.
+class ExternalIdentity {
+  final String name;
+  final String brand;
+  final String category;
+  final String? imageUrl;
+  final String? webUrl;
+
+  const ExternalIdentity({
+    required this.name,
+    required this.brand,
+    required this.category,
+    this.imageUrl,
+    this.webUrl,
+  });
+
+  factory ExternalIdentity.fromJson(Map<String, dynamic> j) => ExternalIdentity(
+        name: (j['canonical_name'] ?? 'Unknown product') as String,
+        brand: (j['brand'] ?? '') as String,
+        category: (j['category'] ?? 'grocery') as String,
+        imageUrl: j['image_url'] as String?,
+        webUrl: j['webUrl'] as String?,
+      );
+}
+
+/// One crowd-submitted shelf price from Open Prices (AUD, Australian stores only).
+class CommunityPrice {
+  final double price;
+  final String? date;
+  final String store;
+  final String? city;
+
+  const CommunityPrice({
+    required this.price,
+    this.date,
+    required this.store,
+    this.city,
+  });
+
+  factory CommunityPrice.fromJson(Map<String, dynamic> j) {
+    final loc = (j['location'] as Map<String, dynamic>?) ?? const {};
+    return CommunityPrice(
+      price: (j['price'] as num).toDouble(),
+      date: j['date'] as String?,
+      store: (loc['brand'] ?? loc['name'] ?? 'Unknown store') as String,
+      city: loc['city'] as String?,
+    );
+  }
+}
+
+/// GET /api/products/enrichment/:barcode. A null field means that source is
+/// unavailable (communityPrices) or has no record (identity), never an error.
+class ProductEnrichment {
+  final ExternalIdentity? identity;
+  final List<CommunityPrice>? communityPrices;
+
+  const ProductEnrichment({this.identity, this.communityPrices});
+
+  factory ProductEnrichment.fromJson(Map<String, dynamic> j) => ProductEnrichment(
+        identity: j['identity'] == null
+            ? null
+            : ExternalIdentity.fromJson(j['identity'] as Map<String, dynamic>),
+        communityPrices: j['communityPrices'] == null
+            ? null
+            : [
+                for (final r in j['communityPrices'] as List<dynamic>)
+                  CommunityPrice.fromJson(r as Map<String, dynamic>),
+              ],
+      );
+}

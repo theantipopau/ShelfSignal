@@ -18,7 +18,7 @@ Legend: `[x]` done and tested · `[~]` partly done (note says what is missing) �
 | 4 Household & premium UX | Backend and web sample done. **Flutter screens for households, notification preferences, shopping list and reports are not built.** |
 | 5 Closed beta | Not started (no deployment, backups, push, store pipeline). |
 
-Quality gates today: backend 163 tests (151 contract + 12 real-Postgres integration) (PGlite locally, Postgres 16 service in CI), `eslint` clean, `npm audit` 0 high, gitleaks in CI; mobile `flutter analyze` clean + 10 tests.
+Quality gates today: backend 166 tests (154 contract + 12 real-Postgres integration) (PGlite locally, Postgres 16 service in CI), `eslint` clean, `npm audit` 0 high, gitleaks in CI; mobile `flutter analyze` clean + 17 tests.
 
 ---
 
@@ -44,6 +44,7 @@ Quality gates today: backend 163 tests (151 contract + 12 real-Postgres integrat
 - [x] Notification preferences + dry-run preview (quiet hours, digest, cooldown, high-value override, category/retailer mutes)
 - [x] Shopping list (private + household-shared; members may complete, only owner edits/deletes)
 - [x] Mismatch / data reports (idempotent) and **moderation API**: unverified queue, verify (with corrections) / reject, resolve report with optional unmap, audit trail
+- [x] Free enrichment: `GET /api/products/enrichment/:barcode` returns the Open Food Facts identity photo and Open Prices AUD community prices (10-minute in-process cache)
 - [ ] Device registration is stored; **FCM send pipeline not built** (needs a Firebase project)
 - [ ] Refresh-token rotation (currently a single 7-day JWT), Sign in with Apple / Google, password reset
 - [ ] OpenAPI document, `/v1` versioning, idempotency keys, cursor pagination
@@ -56,6 +57,7 @@ Quality gates today: backend 163 tests (151 contract + 12 real-Postgres integrat
 - [x] Riverpod + GoRouter shell, design tokens (light/dark), demo mode (honestly labelled), five tabs
 - [x] Camera scanning with opt-in permission timing, GS1 gate, haptics, duplicate suppression, torch, manual fallback
 - [x] Session token in platform secure storage (legacy plain-prefs token migrated)
+- [x] Scan result shows the product photo and community prices (live mode; demo makes no network calls)
 - [ ] Live-mode screens: households, notification preferences, shopping list, report mismatch, data export, admin tools
 - [ ] Continuous Scan mode, offline scan queue, Drift local-first cache + sync
 - [ ] Price-history chart, signal card parity with spec §9.8 actions (add to list, change rule, report mismatch)
